@@ -8,7 +8,7 @@
     "doc": "docs"
   },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "vitest",
     "build": "npx tsc",
     "run": "npm run build && npx @modelcontextprotocol/inspector node dist/index.js"
   },
@@ -23,6 +23,7 @@
   "devDependencies": {
     "@types/node": "^26.1.1",
     "@types/ws": "^8.18.1",
-    "typescript": "^7.0.2"
+    "typescript": "^7.0.2",
+    "vitest": "^3.0.0"
   }
 }
