@@ -51,6 +51,7 @@ export const getPodLogsTool = {
             namespace: podNamespace,
             tailLines: 10,
           });
+          // @ts-ignore - Assuming logs has body property
           results[`${podNamespace}/${podName}`] = logs.body as string;
         } catch (e: any) {
           results[`${podNamespace}/${podName}`] = `Error fetching logs: ${e.message}`;
