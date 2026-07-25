@@ -22,7 +22,14 @@ app.get("/sse", async (req, res) => {
   const transport = new SSEServerTransport(`/messages/${sessionId}`, res);
   transportMap.set(sessionId, transport);
   
-  await server.connect(transport);
+  try {
+    await server.connect(transport);
+  } catch (error) {
+    console.error("Connection error:", error);
+    transportMap.delete(sessionId);
+    res.status(500).send("Connection error");
+    return;
+  }
   
   req.on("close", () => {
     transportMap.delete(sessionId);

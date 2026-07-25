@@ -17,11 +17,12 @@ export const getPodLogsTool = {
   },
   execute: async ({ namespace, podSearch }: { namespace?: string; podSearch?: string }) => {
     try {
+      console.log(namespace, 'namespace')
       // 1. Discovery
       const res = namespace
         ? await k8sApi.listNamespacedPod({ namespace })
         : await k8sApi.listPodForAllNamespaces();
-      
+      console.log(res.items)
       let pods = res.items || [];
 
       // 2. Filter

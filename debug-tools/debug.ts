@@ -24,7 +24,7 @@ async function runDebug() {
   // Example 3: Get Pod Logs (requires namespace OR podSearch)
   console.log("\n3. Testing getPodLogsTool (namespace: 'default'):");
   try {
-    const result = await getPodLogsTool.execute({ namespace: "default" });
+    const result = await getPodLogsTool.execute({ namespace: "default", podSearch: '67877996f7-jf27f' });
     console.log(result);
   } catch (err) {
     console.error("Error in getPodLogsTool:", err);
