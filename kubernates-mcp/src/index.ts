@@ -3,11 +3,9 @@ import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
 import { countPodsTool, getPodsHealthTool, getPodLogsTool } from "./tools/kubernetesTools.js";
 import express from "express";
 import cors from "cors";
+import crypto from "crypto";
 
-const server = new McpServer({
-  name: "kubernetes-mcp",
-  version: "1.0.0",
-});
+const server = new McpServer({ name: "kubernetes-mcp", version: "1.0.0" });
 
 // Tool registration
 server.registerTool(countPodsTool.name, countPodsTool.schema, countPodsTool.execute);
@@ -17,19 +15,32 @@ server.registerTool(getPodLogsTool.name, getPodLogsTool.schema, getPodLogsTool.e
 const app = express();
 app.use(cors());
 
-let transport: SSEServerTransport;
+const transportMap = new Map<string, SSEServerTransport>();
 
 app.get("/sse", async (req, res) => {
-  transport = new SSEServerTransport("/messages", res);
+  const sessionId = crypto.randomUUID();
+  const transport = new SSEServerTransport(`/messages/${sessionId}`, res);
+  transportMap.set(sessionId, transport);
+  
   await server.connect(transport);
+  
+  req.on("close", () => {
+    transportMap.delete(sessionId);
+  });
 });
 
-app.post("/messages", async (req, res) => {
+app.post("/messages/:sessionId", async (req, res) => {
+  const transport = transportMap.get(req.params.sessionId);
   if (!transport) {
-    res.status(400).send("Transport not initialized");
+    res.status(404).send("Session not found");
     return;
   }
-  await transport.handlePostMessage(req, res);
+  try {
+    await transport.handlePostMessage(req, res);
+  } catch (error) {
+    console.error("Message handling error:", error);
+    res.status(500).send("Internal server error");
+  }
 });
 
 app.listen(3000, () => console.log("MCP Server running on port 3000"));
