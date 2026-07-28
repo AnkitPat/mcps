@@ -8,26 +8,23 @@ export const getPodLogsTool = {
     title: "Get Kubernetes Pod Logs",
 
     description: `
-Retrieve the latest logs from Kubernetes pods.
+Retrieve and filter logs from Kubernetes pods.
 
-Use this tool whenever the user asks to:
+Use this tool for:
+• Debugging application errors
+• Troubleshooting specific incidents (e.g., 10am-11am)
+• Finding specific keywords in logs (e.g., "timeout", "error")
+• Checking logs from a specific point in time
 
-• show logs
-• view pod logs
-• debug a pod
-• investigate CrashLoopBackOff
-• inspect application logs
-• troubleshoot Kubernetes workloads
+Features:
+- Time-based: Use 'sinceSeconds' (relative) or 'sinceTime' (absolute ISO string).
+- Search: Use 'grep' to filter for specific keywords or regex patterns.
+- Context: Use 'grepContext' to see lines before/after a 'grep' match.
 
 Examples:
-
-- Show logs for eurocampings-staging
-- Get frontend logs
-- Show logs for pods containing "api"
-- Debug worker pod
-- Show logs from the last 5 minutes (sinceSeconds=300)
-
-Returns up to 50 log lines for up to 10 matching pods.
+- Show logs for eurocampings-staging since 10:00 (sinceTime="2024-03-25T10:00:00Z")
+- Find "ConnectionTimeout" in frontend logs with 10 lines of context (grep="ConnectionTimeout", grepContext=10)
+- Get last 1 hour of api logs (sinceSeconds=3600)
 `,
 
     annotations: {
@@ -43,14 +40,14 @@ Returns up to 50 log lines for up to 10 matching pods.
           .string()
           .optional()
           .describe(
-            "Kubernetes namespace to search. Examples: eurocampings-staging, eurocampings-prod, default."
+            "Kubernetes namespace. Examples: eurocampings-staging, eurocampings-prod, default."
           ),
 
         podSearch: z
           .string()
           .optional()
           .describe(
-            "Optional partial pod name filter. Examples: api, frontend, nginx, worker."
+            "Optional partial pod name filter. Examples: api, frontend, worker."
           ),
 
         sinceSeconds: z
@@ -59,10 +56,37 @@ Returns up to 50 log lines for up to 10 matching pods.
           .describe(
             "Relative time in seconds before the current time from which to show logs."
           ),
+
+        sinceTime: z
+          .string()
+          .optional()
+          .describe(
+            "Absolute ISO 8601 timestamp from which to show logs (e.g., '2024-03-25T10:00:00Z')."
+          ),
+
+        tailLines: z
+          .number()
+          .optional()
+          .describe(
+            "Number of lines to return from the end of the logs. Default 50, max 1000."
+          ),
+
+        grep: z
+          .string()
+          .optional()
+          .describe(
+            "Optional search string or regex to filter log lines. Only lines matching this (and context) will be returned."
+          ),
+
+        grepContext: z
+          .number()
+          .optional()
+          .describe(
+            "Number of lines of context to show around each 'grep' match. Default 0."
+          ),
       })
       .refine((data) => data.namespace || data.podSearch, {
-        message:
-          "Provide either namespace or podSearch.",
+        message: "Provide either namespace or podSearch.",
       }),
   },
 
@@ -70,10 +94,18 @@ Returns up to 50 log lines for up to 10 matching pods.
     namespace,
     podSearch,
     sinceSeconds,
+    sinceTime,
+    tailLines = 50,
+    grep,
+    grepContext = 0,
   }: {
     namespace?: string;
     podSearch?: string;
     sinceSeconds?: number;
+    sinceTime?: string;
+    tailLines?: number;
+    grep?: string;
+    grepContext?: number;
   }) => {
     try {
       const res = namespace
@@ -88,7 +120,7 @@ Returns up to 50 log lines for up to 10 matching pods.
         );
       }
 
-      const limitedPods = pods.slice(0, 10);
+      const limitedPods = pods.slice(0, 5); // Limit to 5 pods when doing heavy logging
 
       if (limitedPods.length === 0) {
         return {
@@ -112,18 +144,65 @@ Returns up to 50 log lines for up to 10 matching pods.
         if (!podName || !podNamespace) continue;
 
         try {
-          // @ts-ignore
-          const logs = await k8sApi.readNamespacedPodLog({
-            
+          const fetchOptions: any = {
             name: podName,
             namespace: podNamespace,
-            tailLines: 50,
-            sinceSeconds: sinceSeconds,
-          });
+            tailLines: Math.min(tailLines, 1000),
+          };
+
+          if (sinceSeconds) fetchOptions.sinceSeconds = sinceSeconds;
+          if (sinceTime) fetchOptions.sinceTime = sinceTime;
+          console.log(fetchOptions, 'fetch options')
 
           // @ts-ignore
-          results[`${podNamespace}/${podName}`] =
-            logs as string;
+          const response = await k8sApi.readNamespacedPodLog(fetchOptions);
+          // @ts-ignore
+          let logs = response as string;
+          console.log(response, 'response')
+
+          if (grep) {
+            const lines = logs.split("\n");
+            const grepRegex = new RegExp(grep, "i");
+            const filteredLines: string[] = [];
+            const matchedIndices: number[] = [];
+
+            // Find match indices
+            lines.forEach((line, index) => {
+              if (grepRegex.test(line)) {
+                matchedIndices.push(index);
+              }
+            });
+
+            if (matchedIndices.length === 0) {
+              results[`${podNamespace}/${podName}`] = `--- No matches found for grep: "${grep}" ---`;
+              continue;
+            }
+
+            // Extract context
+            const linesToInclude = new Set<number>();
+            matchedIndices.forEach((matchIdx) => {
+              const start = Math.max(0, matchIdx - grepContext);
+              const end = Math.min(lines.length - 1, matchIdx + grepContext);
+              for (let i = start; i <= end; i++) {
+                linesToInclude.add(i);
+              }
+            });
+
+            const sortedIndices = Array.from(linesToInclude).sort((a, b) => a - b);
+            let lastIdx = -1;
+            
+            sortedIndices.forEach((idx) => {
+              if (lastIdx !== -1 && idx > lastIdx + 1) {
+                filteredLines.push("... [...] ...");
+              }
+              filteredLines.push(lines[idx]);
+              lastIdx = idx;
+            });
+
+            logs = filteredLines.join("\n");
+          }
+
+          results[`${podNamespace}/${podName}`] = logs;
         } catch (e: any) {
           results[
             `${podNamespace}/${podName}`
