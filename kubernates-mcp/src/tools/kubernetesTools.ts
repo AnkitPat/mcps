@@ -581,7 +581,7 @@ export const getPodMetricsTool = {
   },
   execute: async ({ namespace, podName }: { namespace: string; podName: string }) => {
     const apiUrl = process.env.DASHBOARD_API_URL;
-    const apiToken = process.env.DASHBOARD_API_TOKEN;
+    const apiToken = process.env.K8S_API_TOKEN;
 
     if (!apiUrl || !apiToken) {
       return {

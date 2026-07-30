@@ -18,3 +18,4 @@ kc.loadFromOptions({
 });
 
 export const k8sApi = kc.makeApiClient(k8s.CoreV1Api);
+export const k8sCustomApi = kc.makeApiClient(k8s.CustomObjectsApi);
