@@ -1,5 +1,136 @@
 import { z } from "zod";
-import { k8sApi } from "../k8sClient.js";
+import { k8sApi, k8sCustomApi } from "../k8sClient.js";
+
+
+export const describePodTool = {
+  name: "describe_pod",
+
+  schema: {
+    title: "Describe Kubernetes Pod",
+
+    description: `
+Retrieve full details (spec, status, events, etc.) for a specific Kubernetes pod.
+Equivalent to 'kubectl describe pod <name>'.
+
+If the namespace is not provided, the tool will search all namespaces to find the pod.
+
+Use this tool to:
+• Inspect pod configuration
+• Check pod status/phase
+• View container details (images, ports, env)
+• Troubleshoot pod scheduling or runtime issues
+`,
+
+    annotations: {
+      title: "Describe Kubernetes Pod",
+      readOnlyHint: true,
+      idempotentHint: true,
+      openWorldHint: true,
+    },
+
+    inputSchema: z.object({
+      podName: z
+        .string()
+        .describe("The name of the pod to describe."),
+      namespace: z
+        .string()
+        .optional()
+        .describe(
+          "Optional Kubernetes namespace. If omitted, all namespaces will be searched."
+        ),
+    }),
+  },
+
+  execute: async ({
+    podName,
+    namespace,
+  }: {
+    podName: string;
+    namespace?: string;
+  }) => {
+    try {
+      let targetNamespace = namespace;
+
+      // 1. Discover namespace if not provided
+      if (!targetNamespace) {
+        const podsRes = await k8sApi.listPodForAllNamespaces({
+          fieldSelector: `metadata.name=${podName}`,
+        });
+
+        const pods = podsRes.items || [];
+        if (pods.length === 0) {
+          return {
+            content: [
+              {
+                type: "text" as const,
+                text: JSON.stringify({
+                  error: `Pod '${podName}' not found in any namespace.`,
+                }),
+              },
+            ],
+          };
+        }
+
+        if (pods.length > 1) {
+          const foundNamespaces = pods.map(p => p.metadata?.namespace).join(", ");
+          return {
+            content: [
+              {
+                type: "text" as const,
+                text: JSON.stringify({
+                  error: `Multiple pods found with name '${podName}' in namespaces: ${foundNamespaces}. Please specify a namespace.`,
+                }),
+              },
+            ],
+          };
+        }
+
+        targetNamespace = pods[0].metadata?.namespace;
+      }
+
+      if (!targetNamespace) {
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: JSON.stringify({
+                error: `Could not determine namespace for pod '${podName}'.`,
+              }),
+            },
+          ],
+        };
+      }
+
+      // 2. Retrieve pod details
+      const podRes = await k8sApi.readNamespacedPod({
+        name: podName,
+        namespace: targetNamespace,
+      });
+      console.log(podRes)
+
+      return {
+        content: [
+          {
+            type: "text" as const,
+            text: JSON.stringify(podRes),
+          },
+        ],
+      };
+    } catch (e: any) {
+      return {
+        isError: true,
+        content: [
+          {
+            type: "text" as const,
+            text: JSON.stringify({
+              error: e.message,
+            }),
+          },
+        ],
+      };
+    }
+  },
+};
 
 export const getPodLogsTool = {
   name: "get_pod_logs",
@@ -152,13 +283,11 @@ Examples:
 
           if (sinceSeconds) fetchOptions.sinceSeconds = sinceSeconds;
           if (sinceTime) fetchOptions.sinceTime = sinceTime;
-          console.log(fetchOptions, 'fetch options')
 
           // @ts-ignore
           const response = await k8sApi.readNamespacedPodLog(fetchOptions);
           // @ts-ignore
           let logs = response as string;
-          console.log(response, 'response')
 
           if (grep) {
             const lines = logs.split("\n");
@@ -190,7 +319,7 @@ Examples:
 
             const sortedIndices = Array.from(linesToInclude).sort((a, b) => a - b);
             let lastIdx = -1;
-            
+
             sortedIndices.forEach((idx) => {
               if (lastIdx !== -1 && idx > lastIdx + 1) {
                 filteredLines.push("... [...] ...");
@@ -310,8 +439,8 @@ count_pods({
     try {
       const res = namespace
         ? await k8sApi.listNamespacedPod({
-            namespace,
-          })
+          namespace,
+        })
         : await k8sApi.listPodForAllNamespaces();
 
       const pods = res.items || [];
@@ -436,6 +565,54 @@ Examples:
             }),
           },
         ],
+      };
+    }
+  },
+};
+
+export const getPodMetricsTool = {
+  name: "get_pod_metrics",
+  schema: {
+    description: "Get CPU/Memory metrics for a specific pod",
+    inputSchema: z.object({
+      namespace: z.string().describe("The namespace of the pod"),
+      podName: z.string().describe("The name of the pod"),
+    }),
+  },
+  execute: async ({ namespace, podName }: { namespace: string; podName: string }) => {
+    const apiUrl = process.env.DASHBOARD_API_URL;
+    const apiToken = process.env.DASHBOARD_API_TOKEN;
+
+    if (!apiUrl || !apiToken) {
+      return {
+        content: [{ type: "text" as const, text: "Missing DASHBOARD_API_URL or DASHBOARD_API_TOKEN environment variables." }],
+        isError: true,
+      };
+    }
+
+    try {
+      const response = await fetch(`${apiUrl}/api/v1/pod/${namespace}/${podName}`, {
+        headers: {
+          'Authorization': `Bearer ${apiToken}`,
+          'Accept': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        return {
+          content: [{ type: "text" as const, text: `API Request failed with status: ${response.status}` }],
+          isError: true,
+        };
+      }
+
+      const data = await response.json();
+      return {
+        content: [{ type: "text" as const, text: JSON.stringify(data, null, 2) }],
+      };
+    } catch (e: any) {
+      return {
+        content: [{ type: "text" as const, text: `Error fetching metrics: ${e.message}` }],
+        isError: true,
       };
     }
   },
