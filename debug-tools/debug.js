@@ -1,4 +1,4 @@
-import { getPodLogsTool } from "../kubernates-mcp/src/tools/kubernetesTools.js";
+import { describePodTool } from "../kubernates-mcp/src/tools/kubernetesTools.js";
 async function runDebug() {
     console.log("--- Debugging Kubernetes Tools ---");
     // Example 1: Count Pods
@@ -19,9 +19,15 @@ async function runDebug() {
        console.error("Error in getPodsHealthTool:", err);
      } */
     // Example 3: Get Pod Logs (requires namespace OR podSearch)
-    console.log("\n3. Testing getPodLogsTool (namespace: 'default'):");
+    // console.log("\n3. Testing getPodLogsTool (namespace: 'default'):");
+    // try {
+    //   const result = await getPodLogsTool.execute({ namespace: "default", podSearch: '67877996f7-jf27f' });
+    //   console.log(result);
+    // } catch (err) {
+    //   console.error("Error in getPodLogsTool:", err);
+    // }
     try {
-        const result = await getPodLogsTool.execute({ namespace: "eurocampings-staging", podSearch: '67877996f7-jf27f' });
+        const result = await describePodTool.execute({ namespace: "eurocampings-staging", podName: "eurocampings-fe-577f4854df-2v877" });
         console.log(result);
     }
     catch (err) {
