@@ -30,7 +30,7 @@ const streamableTransports: Record<
 const transportMap = new Map<string, SSEServerTransport>();
 
 function createServer(): McpServer {
-  const server = new McpServer({ name: "kubernetes-mcp", version: "1.0.0" });
+  const server = new McpServer({ name: "Kubernetes MCP Server", version: "1.0.0", description: "Provides tools for managing and querying Kubernetes resources." });
   
   // Register tools dynamically from the registry
   for (const tool of toolRegistry) {
