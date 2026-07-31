@@ -17,7 +17,7 @@ app.use(express.json({
   type: [
     "application/json",
     "application/*+json"
-  ]
+  ],
   limit: "1mb",
 }));
 const authConfig = getAuthConfig();
@@ -86,7 +86,8 @@ app.get("/sse", authenticate, async (req, res) => {
 });
 
 app.post("/messages/:sessionId", authenticate, async (req, res) => {
-  const transport = transportMap.get(req.params.sessionId);
+  const sessionId = Array.isArray(req.params.sessionId) ? req.params.sessionId[0] : req.params.sessionId;
+  const transport = transportMap.get(sessionId);
   if (!transport) {
     res.status(404).send("Session not found");
     return;
