@@ -221,4 +221,15 @@ app.delete("/mcp", async (req, res) => {
   await streamableTransports[sessionId].handleRequest(req, res);
 });
 
-app.listen(3000, () => console.log("MCP Server running on port 3000"));
+app.get("/health", (_req, res) => {
+  res.status(200).json({
+    status: "ok",
+    uptime: process.uptime()
+  });
+});
+
+const port = 3000;
+
+app.listen(port, () => {
+  console.log(`MCP Server listening on ${port}`);
+});

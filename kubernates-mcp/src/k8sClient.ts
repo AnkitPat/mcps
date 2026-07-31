@@ -1,21 +1,46 @@
-import * as k8s from '@kubernetes/client-node';
+import * as k8s from "@kubernetes/client-node";
 
-const kc = new k8s.KubeConfig();
+let clients:
+  | {
+      core: k8s.CoreV1Api;
+      apps: k8s.AppsV1Api;
+      custom: k8s.CustomObjectsApi;
+    }
+  | undefined;
 
-// Configure cluster and user manually
-const clusterUrl = 'https://acsi-aks-cluster-1-dns-qgn41gtz.hcp.germanywestcentral.azmk8s.io:443';
-const token = process.env.K8S_API_TOKEN;
+export function getK8sClients() {
+  if (clients) {
+    return clients;
+  }
 
-if (!token) {
-  throw new Error("K8S_API_TOKEN environment variable is required.");
+  const token = process.env.K8S_API_TOKEN;
+  const ca = process.env.K8S_API_CA;
+
+  if (!token) {
+    throw new Error("K8S_API_TOKEN environment variable is required.");
+  }
+
+  const kc = new k8s.KubeConfig();
+
+  kc.loadFromOptions({
+    clusters: [
+      {
+        name: "cluster",
+        server:
+          "https://acsi-aks-cluster-1-dns-qgn41gtz.hcp.germanywestcentral.azmk8s.io:443",
+        caData: ca,
+      },
+    ],
+    users: [{ name: "user", token }],
+    contexts: [{ name: "context", cluster: "cluster", user: "user" }],
+    currentContext: "context",
+  });
+
+  clients = {
+    core: kc.makeApiClient(k8s.CoreV1Api),
+    apps: kc.makeApiClient(k8s.AppsV1Api),
+    custom: kc.makeApiClient(k8s.CustomObjectsApi),
+  };
+
+  return clients;
 }
-
-kc.loadFromOptions({
-  clusters: [{ name: 'cluster', server: clusterUrl, caData: process.env.K8S_API_CA }],
-  users: [{ name: 'user', token: token }],
-  contexts: [{ name: 'context', cluster: 'cluster', user: 'user' }],
-  currentContext: 'context',
-});
-
-export const k8sApi = kc.makeApiClient(k8s.CoreV1Api);
-export const k8sCustomApi = kc.makeApiClient(k8s.CustomObjectsApi);
