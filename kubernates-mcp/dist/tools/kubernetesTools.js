@@ -1,5 +1,68 @@
 import { z } from "zod";
-import { k8sApi } from "../k8sClient.js";
+import { getK8sClients } from "../k8sClient.js";
+export const listDeploymentsTool = {
+    name: "list_deployments",
+    schema: {
+        title: "List Kubernetes Deployments",
+        description: `
+Retrieve a curated list of Kubernetes deployments with their status, container images, and selector labels.
+
+Use this tool to:
+• View the overall state of workloads in a namespace
+• Quickly check replica counts (desired/ready/available)
+• Identify which images are running
+• Find selector labels for debugging
+
+Examples:
+- List all deployments: list_deployments()
+- List deployments in staging: list_deployments({ namespace: "eurocampings-staging" })
+`,
+        annotations: {
+            title: "List Kubernetes Deployments",
+            readOnlyHint: true,
+            idempotentHint: true,
+            openWorldHint: true,
+        },
+        inputSchema: z.object({
+            namespace: z
+                .string()
+                .optional()
+                .describe("Kubernetes namespace. If omitted, lists all namespaces."),
+        }),
+    },
+    execute: async ({ namespace }) => {
+        try {
+            const { apps } = getK8sClients();
+            const res = namespace
+                ? await apps.listNamespacedDeployment({ namespace })
+                : await apps.listDeploymentForAllNamespaces();
+            const deployments = res.items || [];
+            const curatedDeployments = deployments.map((d) => ({
+                name: d.metadata?.name,
+                namespace: d.metadata?.namespace,
+                status: {
+                    availableReplicas: d.status?.availableReplicas ?? 0,
+                    desiredReplicas: d.spec?.replicas ?? 0,
+                    readyReplicas: d.status?.readyReplicas ?? 0,
+                },
+                containers: d.spec?.template.spec?.containers.map((c) => ({
+                    name: c.name,
+                    image: c.image,
+                })) ?? [],
+                labels: d.spec?.selector?.matchLabels ?? {},
+            }));
+            return {
+                content: [{ type: "text", text: JSON.stringify(curatedDeployments, null, 2) }],
+            };
+        }
+        catch (e) {
+            return {
+                isError: true,
+                content: [{ type: "text", text: `Error fetching deployments: ${e.message}` }],
+            };
+        }
+    },
+};
 export const describePodTool = {
     name: "describe_pod",
     schema: {
@@ -8,13 +71,15 @@ export const describePodTool = {
 Retrieve full details (spec, status, events, etc.) for a specific Kubernetes pod.
 Equivalent to 'kubectl describe pod <name>'.
 
-If the namespace is not provided, the tool will search all namespaces to find the pod.
-
 Use this tool to:
-• Inspect pod configuration
-• Check pod status/phase
-• View container details (images, ports, env)
-• Troubleshoot pod scheduling or runtime issues
+• Inspect detailed pod configuration
+• Check pod status/phase transitions
+• View full container specifications (images, ports, env)
+• Troubleshoot scheduling, liveness/readiness, or runtime issues
+
+Examples:
+- Describe pod "web-server": describe_pod({ podName: "web-server" })
+- Describe pod in specific namespace: describe_pod({ podName: "web-server", namespace: "prod" })
 `,
         annotations: {
             title: "Describe Kubernetes Pod",
@@ -34,10 +99,11 @@ Use this tool to:
     },
     execute: async ({ podName, namespace, }) => {
         try {
+            const { core } = getK8sClients();
             let targetNamespace = namespace;
             // 1. Discover namespace if not provided
             if (!targetNamespace) {
-                const podsRes = await k8sApi.listPodForAllNamespaces({
+                const podsRes = await core.listPodForAllNamespaces({
                     fieldSelector: `metadata.name=${podName}`,
                 });
                 const pods = podsRes.items || [];
@@ -81,7 +147,7 @@ Use this tool to:
                 };
             }
             // 2. Retrieve pod details
-            const podRes = await k8sApi.readNamespacedPod({
+            const podRes = await core.readNamespacedPod({
                 name: podName,
                 namespace: targetNamespace,
             });
@@ -176,9 +242,10 @@ Examples:
     },
     execute: async ({ namespace, podSearch, sinceSeconds, sinceTime, tailLines = 50, grep, grepContext = 0, }) => {
         try {
+            const { core } = getK8sClients();
             const res = namespace
-                ? await k8sApi.listNamespacedPod({ namespace })
-                : await k8sApi.listPodForAllNamespaces();
+                ? await core.listNamespacedPod({ namespace })
+                : await core.listPodForAllNamespaces();
             let pods = res.items || [];
             if (podSearch) {
                 pods = pods.filter((pod) => pod.metadata?.name?.includes(podSearch));
@@ -213,7 +280,7 @@ Examples:
                     if (sinceTime)
                         fetchOptions.sinceTime = sinceTime;
                     // @ts-ignore
-                    const response = await k8sApi.readNamespacedPodLog(fetchOptions);
+                    const response = await core.readNamespacedPodLog(fetchOptions);
                     // @ts-ignore
                     let logs = response;
                     if (grep) {
@@ -344,11 +411,12 @@ count_pods({
     },
     execute: async ({ namespace, }) => {
         try {
+            const { core } = getK8sClients();
             const res = namespace
-                ? await k8sApi.listNamespacedPod({
+                ? await core.listNamespacedPod({
                     namespace,
                 })
-                : await k8sApi.listPodForAllNamespaces();
+                : await core.listPodForAllNamespaces();
             const pods = res.items || [];
             return {
                 content: [
@@ -428,7 +496,8 @@ Examples:
     },
     execute: async ({ namespace, }) => {
         try {
-            const res = await k8sApi.listNamespacedPod({
+            const { core } = getK8sClients();
+            const res = await core.listNamespacedPod({
                 namespace,
             });
             const pods = res.items || [];
