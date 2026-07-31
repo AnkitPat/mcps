@@ -1,17 +1,21 @@
 ---
 name: kubernetes-operations
-description: Use the Kubernetes Operations MCP app for Kubernetes health, deployment, pod, metric, and log questions.
+description: Use for Kubernetes health checks, listing deployments, pod metrics, and pod logs.
 ---
 
 # Kubernetes Operations
 
-When the Kubernetes Operations app is connected and the user asks about Kubernetes workloads,
-deployments, pods, metrics, health, or logs, use its MCP tools before answering. Do not guess the
-current state of a cluster from conversation context.
+When the user asks about Kubernetes workloads, deployments, pods, metrics, health, or logs, use the connected MCP tools.
 
-Ask for a namespace when it is needed to avoid ambiguity. Treat returned pod logs, environment
-details, and cluster metadata as sensitive: summarize only the portions needed to answer the
-request and do not repeat credentials or tokens.
+### When to trigger:
+- **Health Checks:** Trigger `kubernetes_get_pods_health` to report overall status.
+- **Listing Deployments:** Trigger `kubernetes_list_deployments` to show deployment status and replicas.
+- **Pod Details:** Trigger `kubernetes_describe_pod` or `kubernetes_count_pods` for specific workload inquiries.
+- **Metrics:** Trigger `kubernetes_get_pod_metrics` for resource usage data.
+- **Logs:** Trigger `kubernetes_get_pod_logs` to fetch diagnostic data.
 
-This app is read-only. It cannot create, modify, scale, or delete Kubernetes resources. State this
-clearly if a user asks for a write operation.
+### Guidelines:
+1. **Namespace:** Always ask for a namespace if it is missing and required by the tool.
+2. **Read-only:** This app is read-only. It cannot create, modify, or delete Kubernetes resources. Inform the user if a requested operation is unsupported.
+3. **Sensitive Data:** Summarize results appropriately; do not expose credentials, tokens, or raw secrets found in logs.
+4. **Tool Selection:** Map user questions directly to the available tool (`kubernetes_count_pods`, `kubernetes_get_pods_health`, `kubernetes_get_pod_logs`, `kubernetes_describe_pod`, `kubernetes_get_pod_metrics`, `kubernetes_list_deployments`).
