@@ -29,10 +29,10 @@ vi.mock('../k8sClient.js', () => ({
 
 import * as tools from './kubernetesTools.js';
 
-const { getPodLogsTool, getPodMetricsTool, listDeploymentsTool } = tools;
+const { kubernetes_get_pod_logs_tool, kubernetes_get_pod_metrics_tool, kubernetes_list_deployments_tool } = tools;
 
 
-describe('listDeploymentsTool', () => {
+describe('kubernetes_list_deployments_tool', () => {
   test('should list deployments', async () => {
     mockApps.listDeploymentForAllNamespaces.mockResolvedValue({
       items: [
@@ -48,7 +48,7 @@ describe('listDeploymentsTool', () => {
       ]
     });
 
-    const result = await listDeploymentsTool.execute({});
+    const result = await kubernetes_list_deployments_tool.execute({});
     const deployments = JSON.parse(result.content[0].text);
 
     expect(deployments).toHaveLength(1);
@@ -56,7 +56,7 @@ describe('listDeploymentsTool', () => {
   });
 });
 
-describe('getPodLogsTool', () => {
+describe('kubernetes_get_pod_logs_tool', () => {
   test('should filter pods by name and retrieve logs', async () => {
     mockCore.listPodForAllNamespaces.mockResolvedValue({
       items: [
@@ -66,7 +66,7 @@ describe('getPodLogsTool', () => {
     });
     mockCore.readNamespacedPodLog.mockResolvedValue('log content');
 
-    const result = await getPodLogsTool.execute({ podSearch: 'pod' });
+    const result = await kubernetes_get_pod_logs_tool.execute({ podSearch: 'pod' });
 
     expect(result.content[0].text).toContain('default/pod1');
     expect(result.content[0].text).not.toContain('other');
@@ -74,10 +74,9 @@ describe('getPodLogsTool', () => {
   });
 });
 
-describe('getPodMetricsTool', () => {
+describe('kubernetes_get_pod_metrics_tool', () => {
   test('should return error if env vars are missing', async () => {
-    const result = await getPodMetricsTool.execute({ namespace: 'default', podName: 'pod1' });
+    const result = await kubernetes_get_pod_metrics_tool.execute({ namespace: 'default', podName: 'pod1' });
     expect(result.isError).toBe(true);
   });
 });
-
