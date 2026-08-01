@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { listDeployments } from '../../src/tools/kubernetesTools.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -16,6 +17,15 @@ app.get('/.well-known/ai-plugin.json', (req, res) => {
 
 app.get('/openapi.yaml', (req, res) => {
     res.sendFile(path.join(__dirname, '../openapi.yaml'));
+});
+
+app.get('/deployments', async (req, res) => {
+    try {
+        const result = await listDeployments({});
+        res.json(result);
+    } catch (e: any) {
+        res.status(500).json({ error: e.message || 'Failed to list deployments' });
+    }
 });
 
 const PORT = 3000;
