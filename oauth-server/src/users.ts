@@ -1,4 +1,4 @@
-import fs from 'fs';
+import fs from 'fs/promises';
 import path from 'path';
 import bcrypt from 'bcrypt';
 import { fileURLToPath } from 'url';
@@ -8,7 +8,7 @@ const __dirname = path.dirname(__filename);
 
 interface User {
     email: string;
-    password: string; // Will store hash after startup
+    password: string; // Already hashed
     role: string;
 }
 
@@ -16,13 +16,8 @@ const usersPath = path.join(__dirname, '..', 'config', 'users.json');
 let users: User[] = [];
 
 export const loadUsers = async () => {
-    const data = fs.readFileSync(usersPath, 'utf-8');
-    const rawUsers: User[] = JSON.parse(data);
-    
-    users = await Promise.all(rawUsers.map(async (u) => ({
-        ...u,
-        password: await bcrypt.hash(u.password, 10)
-    })));
+    const data = await fs.readFile(usersPath, 'utf-8');
+    users = JSON.parse(data);
 };
 
 export const findUserByEmail = (email: string) => users.find(u => u.email === email);

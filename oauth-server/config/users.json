@@ -1,12 +1,12 @@
 [
   {
     "email": "ankit@company.com",
-    "password": "Password123!",
+    "password": "$2b$10$YXmCNgx49J..M/F4K8b8zOTwPjxpNanCtpc1GHXBqs.7mGBeZC/oC",
     "role": "admin"
   },
   {
     "email": "john@company.com",
-    "password": "Password123!",
+    "password": "$2b$10$YXmCNgx49J..M/F4K8b8zOTwPjxpNanCtpc1GHXBqs.7mGBeZC/oC",
     "role": "developer"
   }
 ]
