@@ -1,0 +1,15 @@
+
+> kubectl-mcp@1.0.1 start
+> node --env-file=.env dist/index.js
+
+MCP Server Started
+Registered tools:
+- count_pods
+- get_pods_health
+- get_pod_logs
+- describe_pod
+- get_pod_metrics
+- list_deployments
+Total tools registered: 6
+MCP Server listening on 8080
+[MCP] Unknown session: undefined

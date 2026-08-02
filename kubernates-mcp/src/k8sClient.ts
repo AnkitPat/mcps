@@ -1,12 +1,12 @@
 import * as k8s from "@kubernetes/client-node";
 
-let clients:
-  | {
-      core: k8s.CoreV1Api;
-      apps: k8s.AppsV1Api;
-      custom: k8s.CustomObjectsApi;
-    }
-  | undefined;
+export interface KubernetesClients {
+  core: k8s.CoreV1Api;
+  apps: k8s.AppsV1Api;
+  custom: k8s.CustomObjectsApi;
+}
+
+let clients: KubernetesClients | undefined;
 
 export function getK8sClients() {
   if (clients) {

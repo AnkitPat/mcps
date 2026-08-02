@@ -6,15 +6,19 @@ export function getK8sClients() {
     }
     const token = process.env.K8S_API_TOKEN;
     const ca = process.env.K8S_API_CA;
+    const server = process.env.K8S_API_SERVER;
     if (!token) {
         throw new Error("K8S_API_TOKEN environment variable is required.");
+    }
+    if (!server) {
+        throw new Error("K8S_API_SERVER environment variable is required.");
     }
     const kc = new k8s.KubeConfig();
     kc.loadFromOptions({
         clusters: [
             {
                 name: "cluster",
-                server: "https://acsi-aks-cluster-1-dns-qgn41gtz.hcp.germanywestcentral.azmk8s.io:443",
+                server,
                 caData: ca,
             },
         ],

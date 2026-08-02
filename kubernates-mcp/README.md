@@ -1,30 +1,35 @@
-# Kubernetes MCP for ChatGPT
+# Kubernetes MCP Server
 
-This server exposes read-only Kubernetes diagnostics to ChatGPT through the Model Context Protocol (MCP).
+This server exposes Kubernetes cluster diagnostics (read-only) via the Model Context Protocol (MCP).
+
+## How to use
+
+This server can be connected to any MCP-compliant client (like Claude Desktop).
+
+### Local Configuration
+
+1. **Build the server**:
+   ```bash
+   npm install
+   npm run build
+   ```
+
+2. **Configure your MCP Client** (e.g., Claude Desktop):
+   Add the following to your `claude_desktop_config.json`:
+   ```json
+   {
+     "mcpServers": {
+       "kubernetes": {
+         "command": "node",
+         "args": ["/path/to/your/kubernates-mcp/dist/index.js"]
+       }
+     }
+   }
+   ```
 
 ## Authentication
 
-Production deployments use OIDC bearer access tokens. Set `OIDC_ISSUER`, `OIDC_AUDIENCE`, and
-`MCP_PUBLIC_URL`; the server publishes OAuth protected-resource metadata at
-`/.well-known/oauth-protected-resource` and requires the `kubernetes.read` scope on `/mcp`.
+For local development, you can use token-based authentication. Set `AUTH_MODE=token` and `MCP_AUTH_TOKEN` in your environment.
 
-The service account behind `K8S_API_TOKEN` must be restricted to the namespaces and read operations
-needed by these tools. OIDC identifies the ChatGPT user, but Kubernetes calls still use this service
-account; use a separate server deployment per permission boundary.
+For production, it is recommended to use OIDC bearer tokens.
 
-For local testing only, set `AUTH_MODE=token` and `MCP_AUTH_TOKEN`. Never expose a development
-token on a public endpoint.
-
-## Deploy and connect
-
-1. Copy `.env.example` into your deployment platform's secret/configuration settings. Do not commit
-   secrets.
-2. Deploy the image to a public HTTPS endpoint. The process honors `PORT` and defaults to 8080.
-3. Configure your identity provider to issue RS256 access tokens with audience `OIDC_AUDIENCE` and
-   scope `kubernetes.read` for the ChatGPT MCP client.
-4. In ChatGPT developer mode, add the remote MCP endpoint at
-   `https://your-domain.example/mcp`, complete the OIDC connection, then publish it through your
-   workspace's Apps/Plugins settings.
-
-ChatGPT requires the app to be enabled or explicitly selected in a chat before it can use the app's
-external tools. The server cannot override that user-consent boundary.
