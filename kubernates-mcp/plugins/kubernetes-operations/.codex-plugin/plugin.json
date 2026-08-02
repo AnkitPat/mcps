@@ -1,0 +1,23 @@
+{
+  "name": "kubernetes-operations",
+  "version": "0.1.0",
+  "description": "Read-only Kubernetes diagnostics through an authenticated MCP app.",
+  "author": {
+    "name": "Kubernetes MCP Team"
+  },
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Kubernetes Operations",
+    "shortDescription": "Inspect Kubernetes health, deployments, metrics, and logs.",
+    "longDescription": "Connects ChatGPT and Codex to a protected, read-only Kubernetes diagnostics MCP server.",
+    "developerName": "Kubernetes MCP Team",
+    "category": "Productivity",
+    "capabilities": ["MCP", "Read"],
+    "defaultPrompt": [
+      "Check the health of my Kubernetes workloads.",
+      "List deployments and their replica status.",
+      "Find recent errors in a Kubernetes pod's logs."
+    ]
+  },
+  "mcpServers": "./.mcp.json"
+}

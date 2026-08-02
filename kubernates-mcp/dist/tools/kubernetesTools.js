@@ -1,21 +1,58 @@
 import { z } from "zod";
 import { getK8sClients } from "../k8sClient.js";
-export const listDeploymentsTool = {
-    name: "list_deployments",
+export async function listDeployments({ namespace }) {
+    try {
+        const { apps } = getK8sClients();
+        const res = namespace
+            ? await apps.listNamespacedDeployment({ namespace })
+            : await apps.listDeploymentForAllNamespaces();
+        const deployments = res.items || [];
+        const curatedDeployments = deployments.map((d) => ({
+            name: d.metadata?.name,
+            namespace: d.metadata?.namespace,
+            status: {
+                availableReplicas: d.status?.availableReplicas ?? 0,
+                desiredReplicas: d.spec?.replicas ?? 0,
+                readyReplicas: d.status?.readyReplicas ?? 0,
+            },
+            containers: d.spec?.template.spec?.containers.map((c) => ({
+                name: c.name,
+                image: c.image,
+            })) ?? [],
+            labels: d.spec?.selector?.matchLabels ?? {},
+        }));
+        return {
+            content: [{ type: "text", text: JSON.stringify(curatedDeployments, null, 2) }],
+        };
+    }
+    catch (e) {
+        return {
+            isError: true,
+            content: [{ type: "text", text: `Error fetching deployments: ${e.message}` }],
+        };
+    }
+}
+export const kubernetes_list_deployments_tool = {
+    name: "kubernetes_list_deployments",
     schema: {
         title: "List Kubernetes Deployments",
         description: `
-Retrieve a curated list of Kubernetes deployments with their status, container images, and selector labels.
+Returns a list of Kubernetes deployments with status, images, and labels.
 
-Use this tool to:
-• View the overall state of workloads in a namespace
-• Quickly check replica counts (desired/ready/available)
-• Identify which images are running
-• Find selector labels for debugging
+Input:
+- namespace: Kubernetes namespace (optional).
+
+Output:
+A JSON-formatted list of deployments including:
+- Name
+- Namespace
+- Replica counts (desired/ready/available)
+- Container list
+- Selector labels
 
 Examples:
-- List all deployments: list_deployments()
-- List deployments in staging: list_deployments({ namespace: "eurocampings-staging" })
+- List all deployments: kubernetes_list_deployments()
+- List deployments in staging: kubernetes_list_deployments({ namespace: "eurocampings-staging" })
 `,
         annotations: {
             title: "List Kubernetes Deployments",
@@ -30,56 +67,102 @@ Examples:
                 .describe("Kubernetes namespace. If omitted, lists all namespaces."),
         }),
     },
-    execute: async ({ namespace }) => {
-        try {
-            const { apps } = getK8sClients();
-            const res = namespace
-                ? await apps.listNamespacedDeployment({ namespace })
-                : await apps.listDeploymentForAllNamespaces();
-            const deployments = res.items || [];
-            const curatedDeployments = deployments.map((d) => ({
-                name: d.metadata?.name,
-                namespace: d.metadata?.namespace,
-                status: {
-                    availableReplicas: d.status?.availableReplicas ?? 0,
-                    desiredReplicas: d.spec?.replicas ?? 0,
-                    readyReplicas: d.status?.readyReplicas ?? 0,
-                },
-                containers: d.spec?.template.spec?.containers.map((c) => ({
-                    name: c.name,
-                    image: c.image,
-                })) ?? [],
-                labels: d.spec?.selector?.matchLabels ?? {},
-            }));
-            return {
-                content: [{ type: "text", text: JSON.stringify(curatedDeployments, null, 2) }],
-            };
-        }
-        catch (e) {
-            return {
-                isError: true,
-                content: [{ type: "text", text: `Error fetching deployments: ${e.message}` }],
-            };
-        }
-    },
+    execute: listDeployments,
 };
-export const describePodTool = {
-    name: "describe_pod",
+export async function describePod({ podName, namespace, }) {
+    try {
+        const { core } = getK8sClients();
+        let targetNamespace = namespace;
+        // 1. Discover namespace if not provided
+        if (!targetNamespace) {
+            const podsRes = await core.listPodForAllNamespaces({
+                fieldSelector: `metadata.name=${podName}`,
+            });
+            const pods = podsRes.items || [];
+            if (pods.length === 0) {
+                return {
+                    content: [
+                        {
+                            type: "text",
+                            text: JSON.stringify({
+                                error: `Pod '${podName}' not found in any namespace.`,
+                            }),
+                        },
+                    ],
+                };
+            }
+            if (pods.length > 1) {
+                const foundNamespaces = pods.map(p => p.metadata?.namespace).join(", ");
+                return {
+                    content: [
+                        {
+                            type: "text",
+                            text: JSON.stringify({
+                                error: `Multiple pods found with name '${podName}' in namespaces: ${foundNamespaces}. Please specify a namespace.`,
+                            }),
+                        },
+                    ],
+                };
+            }
+            targetNamespace = pods[0].metadata?.namespace;
+        }
+        if (!targetNamespace) {
+            return {
+                content: [
+                    {
+                        type: "text",
+                        text: JSON.stringify({
+                            error: `Could not determine namespace for pod '${podName}'.`,
+                        }),
+                    },
+                ],
+            };
+        }
+        // 2. Retrieve pod details
+        const podRes = await core.readNamespacedPod({
+            name: podName,
+            namespace: targetNamespace,
+        });
+        return {
+            content: [
+                {
+                    type: "text",
+                    text: JSON.stringify(podRes),
+                },
+            ],
+        };
+    }
+    catch (e) {
+        return {
+            isError: true,
+            content: [
+                {
+                    type: "text",
+                    text: JSON.stringify({
+                        error: e.message,
+                    }),
+                },
+            ],
+        };
+    }
+}
+export const kubernetes_describe_pod_tool = {
+    name: "kubernetes_describe_pod",
     schema: {
         title: "Describe Kubernetes Pod",
         description: `
-Retrieve full details (spec, status, events, etc.) for a specific Kubernetes pod.
-Equivalent to 'kubectl describe pod <name>'.
+Retrieves full details for a specific Kubernetes pod.
 
-Use this tool to:
-• Inspect detailed pod configuration
-• Check pod status/phase transitions
-• View full container specifications (images, ports, env)
-• Troubleshoot scheduling, liveness/readiness, or runtime issues
+Input:
+- podName: The name of the pod to describe.
+- namespace: Kubernetes namespace (optional).
+
+Output:
+Detailed JSON object containing pod spec, status, events, etc.
 
 Examples:
-- Describe pod "web-server": describe_pod({ podName: "web-server" })
-- Describe pod in specific namespace: describe_pod({ podName: "web-server", namespace: "prod" })
+- Describe pod "web-server": kubernetes_describe_pod({ podName: "web-server" })
+- Describe pod in specific namespace: kubernetes_describe_pod({ podName: "web-server", namespace: "prod" })
 `,
         annotations: {
             title: "Describe Kubernetes Pod",
@@ -97,107 +180,137 @@ Examples:
                 .describe("Optional Kubernetes namespace. If omitted, all namespaces will be searched."),
         }),
     },
-    execute: async ({ podName, namespace, }) => {
-        try {
-            const { core } = getK8sClients();
-            let targetNamespace = namespace;
-            // 1. Discover namespace if not provided
-            if (!targetNamespace) {
-                const podsRes = await core.listPodForAllNamespaces({
-                    fieldSelector: `metadata.name=${podName}`,
-                });
-                const pods = podsRes.items || [];
-                if (pods.length === 0) {
-                    return {
-                        content: [
-                            {
-                                type: "text",
-                                text: JSON.stringify({
-                                    error: `Pod '${podName}' not found in any namespace.`,
-                                }),
-                            },
-                        ],
-                    };
-                }
-                if (pods.length > 1) {
-                    const foundNamespaces = pods.map(p => p.metadata?.namespace).join(", ");
-                    return {
-                        content: [
-                            {
-                                type: "text",
-                                text: JSON.stringify({
-                                    error: `Multiple pods found with name '${podName}' in namespaces: ${foundNamespaces}. Please specify a namespace.`,
-                                }),
-                            },
-                        ],
-                    };
-                }
-                targetNamespace = pods[0].metadata?.namespace;
-            }
-            if (!targetNamespace) {
-                return {
-                    content: [
-                        {
-                            type: "text",
-                            text: JSON.stringify({
-                                error: `Could not determine namespace for pod '${podName}'.`,
-                            }),
-                        },
-                    ],
-                };
-            }
-            // 2. Retrieve pod details
-            const podRes = await core.readNamespacedPod({
-                name: podName,
-                namespace: targetNamespace,
-            });
-            console.log(podRes);
-            return {
-                content: [
-                    {
-                        type: "text",
-                        text: JSON.stringify(podRes),
-                    },
-                ],
-            };
+    execute: describePod,
+};
+export async function getPodLogs({ namespace, podSearch, sinceSeconds, sinceTime, tailLines = 50, grep, grepContext = 0, }) {
+    try {
+        const { core } = getK8sClients();
+        const res = namespace
+            ? await core.listNamespacedPod({ namespace })
+            : await core.listPodForAllNamespaces();
+        let pods = res.items || [];
+        if (podSearch) {
+            pods = pods.filter((pod) => pod.metadata?.name?.includes(podSearch));
         }
-        catch (e) {
+        const limitedPods = pods.slice(0, 5); // Limit to 5 pods when doing heavy logging
+        if (limitedPods.length === 0) {
             return {
-                isError: true,
                 content: [
                     {
                         type: "text",
                         text: JSON.stringify({
-                            error: e.message,
+                            message: "No matching pods found.",
                         }),
                     },
                 ],
             };
         }
-    },
-};
-export const getPodLogsTool = {
-    name: "get_pod_logs",
+        const results = {};
+        for (const pod of limitedPods) {
+            const podName = pod.metadata?.name;
+            const podNamespace = pod.metadata?.namespace;
+            if (!podName || !podNamespace)
+                continue;
+            try {
+                const fetchOptions = {
+                    name: podName,
+                    namespace: podNamespace,
+                    tailLines: Math.min(tailLines, 1000),
+                };
+                if (sinceSeconds)
+                    fetchOptions.sinceSeconds = sinceSeconds;
+                if (sinceTime)
+                    fetchOptions.sinceTime = sinceTime;
+                // @ts-ignore
+                const response = await core.readNamespacedPodLog(fetchOptions);
+                // @ts-ignore
+                let logs = response;
+                if (grep) {
+                    const lines = logs.split("\n");
+                    const grepRegex = new RegExp(grep, "i");
+                    const filteredLines = [];
+                    const matchedIndices = [];
+                    // Find match indices
+                    lines.forEach((line, index) => {
+                        if (grepRegex.test(line)) {
+                            matchedIndices.push(index);
+                        }
+                    });
+                    if (matchedIndices.length === 0) {
+                        results[`${podNamespace}/${podName}`] = `--- No matches found for grep: "${grep}" ---`;
+                        continue;
+                    }
+                    // Extract context
+                    const linesToInclude = new Set();
+                    matchedIndices.forEach((matchIdx) => {
+                        const start = Math.max(0, matchIdx - grepContext);
+                        const end = Math.min(lines.length - 1, matchIdx + grepContext);
+                        for (let i = start; i <= end; i++) {
+                            linesToInclude.add(i);
+                        }
+                    });
+                    const sortedIndices = Array.from(linesToInclude).sort((a, b) => a - b);
+                    let lastIdx = -1;
+                    sortedIndices.forEach((idx) => {
+                        if (lastIdx !== -1 && idx > lastIdx + 1) {
+                            filteredLines.push("... [...] ...");
+                        }
+                        filteredLines.push(lines[idx]);
+                        lastIdx = idx;
+                    });
+                    logs = filteredLines.join("\n");
+                }
+                results[`${podNamespace}/${podName}`] = logs;
+            }
+            catch (e) {
+                results[`${podNamespace}/${podName}`] = `Error fetching logs: ${e.message}`;
+            }
+        }
+        return {
+            content: [
+                {
+                    type: "text",
+                    text: JSON.stringify(results),
+                },
+            ],
+        };
+    }
+    catch (e) {
+        return {
+            isError: true,
+            content: [
+                {
+                    type: "text",
+                    text: JSON.stringify({
+                        error: e.message,
+                    }),
+                },
+            ],
+        };
+    }
+}
+export const kubernetes_get_pod_logs_tool = {
+    name: "kubernetes_get_pod_logs",
     schema: {
         title: "Get Kubernetes Pod Logs",
         description: `
-Retrieve and filter logs from Kubernetes pods.
+Retrieves logs from Kubernetes pods with optional filtering.
 
-Use this tool for:
-• Debugging application errors
-• Troubleshooting specific incidents (e.g., 10am-11am)
-• Finding specific keywords in logs (e.g., "timeout", "error")
-• Checking logs from a specific point in time
+Input:
+- namespace: Kubernetes namespace (optional).
+- podSearch: Partial pod name filter (optional).
+- sinceSeconds: Relative time in seconds (optional).
+- sinceTime: Absolute ISO 8601 timestamp (optional).
+- tailLines: Number of lines to return (optional).
+- grep: Search string/regex to filter log lines (optional).
+- grepContext: Number of context lines around matches (optional).
 
-Features:
-- Time-based: Use 'sinceSeconds' (relative) or 'sinceTime' (absolute ISO string).
-- Search: Use 'grep' to filter for specific keywords or regex patterns.
-- Context: Use 'grepContext' to see lines before/after a 'grep' match.
+Output:
+Logs from matching pods.
 
 Examples:
-- Show logs for eurocampings-staging since 10:00 (sinceTime="2024-03-25T10:00:00Z")
-- Find "ConnectionTimeout" in frontend logs with 10 lines of context (grep="ConnectionTimeout", grepContext=10)
-- Get last 1 hour of api logs (sinceSeconds=3600)
+- Logs for eurocampings-staging since 10:00: kubernetes_get_pod_logs({ namespace: "eurocampings-staging", sinceTime: "2024-03-25T10:00:00Z" })
+- Find "ConnectionTimeout" in frontend logs: kubernetes_get_pod_logs({ podSearch: "frontend", grep: "ConnectionTimeout", grepContext: 10 })
 `,
         annotations: {
             title: "Get Kubernetes Pod Logs",
@@ -240,161 +353,55 @@ Examples:
             message: "Provide either namespace or podSearch.",
         }),
     },
-    execute: async ({ namespace, podSearch, sinceSeconds, sinceTime, tailLines = 50, grep, grepContext = 0, }) => {
-        try {
-            const { core } = getK8sClients();
-            const res = namespace
-                ? await core.listNamespacedPod({ namespace })
-                : await core.listPodForAllNamespaces();
-            let pods = res.items || [];
-            if (podSearch) {
-                pods = pods.filter((pod) => pod.metadata?.name?.includes(podSearch));
-            }
-            const limitedPods = pods.slice(0, 5); // Limit to 5 pods when doing heavy logging
-            if (limitedPods.length === 0) {
-                return {
-                    content: [
-                        {
-                            type: "text",
-                            text: JSON.stringify({
-                                message: "No matching pods found.",
-                            }),
-                        },
-                    ],
-                };
-            }
-            const results = {};
-            for (const pod of limitedPods) {
-                const podName = pod.metadata?.name;
-                const podNamespace = pod.metadata?.namespace;
-                if (!podName || !podNamespace)
-                    continue;
-                try {
-                    const fetchOptions = {
-                        name: podName,
-                        namespace: podNamespace,
-                        tailLines: Math.min(tailLines, 1000),
-                    };
-                    if (sinceSeconds)
-                        fetchOptions.sinceSeconds = sinceSeconds;
-                    if (sinceTime)
-                        fetchOptions.sinceTime = sinceTime;
-                    // @ts-ignore
-                    const response = await core.readNamespacedPodLog(fetchOptions);
-                    // @ts-ignore
-                    let logs = response;
-                    if (grep) {
-                        const lines = logs.split("\n");
-                        const grepRegex = new RegExp(grep, "i");
-                        const filteredLines = [];
-                        const matchedIndices = [];
-                        // Find match indices
-                        lines.forEach((line, index) => {
-                            if (grepRegex.test(line)) {
-                                matchedIndices.push(index);
-                            }
-                        });
-                        if (matchedIndices.length === 0) {
-                            results[`${podNamespace}/${podName}`] = `--- No matches found for grep: "${grep}" ---`;
-                            continue;
-                        }
-                        // Extract context
-                        const linesToInclude = new Set();
-                        matchedIndices.forEach((matchIdx) => {
-                            const start = Math.max(0, matchIdx - grepContext);
-                            const end = Math.min(lines.length - 1, matchIdx + grepContext);
-                            for (let i = start; i <= end; i++) {
-                                linesToInclude.add(i);
-                            }
-                        });
-                        const sortedIndices = Array.from(linesToInclude).sort((a, b) => a - b);
-                        let lastIdx = -1;
-                        sortedIndices.forEach((idx) => {
-                            if (lastIdx !== -1 && idx > lastIdx + 1) {
-                                filteredLines.push("... [...] ...");
-                            }
-                            filteredLines.push(lines[idx]);
-                            lastIdx = idx;
-                        });
-                        logs = filteredLines.join("\n");
-                    }
-                    results[`${podNamespace}/${podName}`] = logs;
-                }
-                catch (e) {
-                    results[`${podNamespace}/${podName}`] = `Error fetching logs: ${e.message}`;
-                }
-            }
-            return {
-                content: [
-                    {
-                        type: "text",
-                        text: JSON.stringify(results),
-                    },
-                ],
-            };
-        }
-        catch (e) {
-            return {
-                isError: true,
-                content: [
-                    {
-                        type: "text",
-                        text: JSON.stringify({
-                            error: e.message,
-                        }),
-                    },
-                ],
-            };
-        }
-    },
+    execute: getPodLogs,
 };
-export const countPodsTool = {
-    name: "count_pods",
+export async function countPods({ namespace, }) {
+    try {
+        const { core } = getK8sClients();
+        const res = namespace
+            ? await core.listNamespacedPod({
+                namespace,
+            })
+            : await core.listPodForAllNamespaces();
+        const pods = res.items || [];
+        return {
+            content: [
+                {
+                    type: "text",
+                    text: JSON.stringify({
+                        namespace: namespace ?? "all",
+                        totalPods: pods.length,
+                    }),
+                },
+            ],
+        };
+    }
+    catch (e) {
+        return {
+            isError: true,
+            content: [
+                {
+                    type: "text",
+                    text: JSON.stringify({
+                        error: e.message,
+                    }),
+                },
+            ],
+        };
+    }
+}
+export const kubernetes_count_pods_tool = {
+    name: "kubernetes_count_pods",
     schema: {
         title: "Count Kubernetes Pods",
         description: `
-Return the CURRENT number of Kubernetes pods.
+Returns the current number of Pods in a Kubernetes namespace or across the cluster.
 
-This tool MUST be used whenever the user asks:
+Input:
+- namespace: Optional Kubernetes namespace. If omitted, all namespaces are counted.
 
-• how many pods
-• pod count
-• number of pods
-• total pods
-• count pods
-• pods in a namespace
-• workload size
-
-Never estimate the answer.
-Always query the Kubernetes cluster.
-
-Examples:
-
-User:
-How many pods are running?
-
-Tool:
-count_pods()
-
----
-
-User:
-Tell me the number of pods in eurocampings-staging.
-
-Tool:
-count_pods({
-  namespace: "eurocampings-staging"
-})
-
----
-
-User:
-Pod count for production.
-
-Tool:
-count_pods({
-  namespace: "production"
-})
+Output:
+The total count of pods matching the criteria.
 `,
         annotations: {
             title: "Count Kubernetes Pods",
@@ -406,81 +413,57 @@ count_pods({
             namespace: z
                 .string()
                 .optional()
-                .describe("Optional Kubernetes namespace. Examples: eurocampings-staging, eurocampings-prod, default. If omitted, all namespaces are counted."),
+                .describe("Optional Kubernetes namespace. If omitted, all namespaces are counted."),
         }),
     },
-    execute: async ({ namespace, }) => {
-        try {
-            const { core } = getK8sClients();
-            const res = namespace
-                ? await core.listNamespacedPod({
-                    namespace,
-                })
-                : await core.listPodForAllNamespaces();
-            const pods = res.items || [];
-            return {
-                content: [
-                    {
-                        type: "text",
-                        text: JSON.stringify({
-                            namespace: namespace ?? "all",
-                            totalPods: pods.length,
-                        }),
-                    },
-                ],
-            };
-        }
-        catch (e) {
-            return {
-                isError: true,
-                content: [
-                    {
-                        type: "text",
-                        text: JSON.stringify({
-                            error: e.message,
-                        }),
-                    },
-                ],
-            };
-        }
-    },
+    execute: countPods,
 };
-export const getPodsHealthTool = {
-    name: "get_pods_health",
+export async function getPodsHealth({ namespace, }) {
+    try {
+        const { core } = getK8sClients();
+        const res = await core.listNamespacedPod({
+            namespace,
+        });
+        const pods = res.items || [];
+        const health = pods.map((pod) => ({
+            name: pod.metadata?.name,
+            status: pod.status?.phase,
+        }));
+        return {
+            content: [
+                {
+                    type: "text",
+                    text: JSON.stringify(health),
+                },
+            ],
+        };
+    }
+    catch (e) {
+        return {
+            isError: true,
+            content: [
+                {
+                    type: "text",
+                    text: JSON.stringify({
+                        error: e.message,
+                    }),
+                },
+            ],
+        };
+    }
+}
+export const kubernetes_get_pods_health_tool = {
+    name: "kubernetes_get_pods_health",
     schema: {
         title: "Get Kubernetes Pod Health",
         description: `
-Retrieve the runtime health of Kubernetes pods.
+Returns the runtime health (phase) of Kubernetes pods in a namespace.
 
-Use this tool ONLY when the user asks about:
+Input:
+- namespace: Kubernetes namespace to inspect.
 
-• pod health
-• pod status
-• running pods
-• failed pods
-• pending pods
-• CrashLoopBackOff
-• unhealthy pods
-• readiness
-• liveness
-
-DO NOT use this tool for counting pods.
-
-If the user asks:
-
-- How many pods?
-- Pod count?
-- Number of pods?
-
-Use the "count_pods" tool instead.
-
-Examples:
-
-- Check pod health
-- Are any pods unhealthy?
-- Show failed pods
-- Which pods are Pending?
-- Are all pods Running?
+Output:
+A list of pods with their name and phase (e.g., Running, Pending, Failed).
 `,
         annotations: {
             title: "Get Kubernetes Pod Health",
@@ -491,46 +474,47 @@ Examples:
         inputSchema: z.object({
             namespace: z
                 .string()
-                .describe("Kubernetes namespace to inspect. Examples: eurocampings-staging, eurocampings-prod."),
+                .describe("Kubernetes namespace to inspect."),
         }),
     },
-    execute: async ({ namespace, }) => {
-        try {
-            const { core } = getK8sClients();
-            const res = await core.listNamespacedPod({
-                namespace,
-            });
-            const pods = res.items || [];
-            const health = pods.map((pod) => ({
-                name: pod.metadata?.name,
-                status: pod.status?.phase,
-            }));
-            return {
-                content: [
-                    {
-                        type: "text",
-                        text: JSON.stringify(health),
-                    },
-                ],
-            };
-        }
-        catch (e) {
-            return {
-                isError: true,
-                content: [
-                    {
-                        type: "text",
-                        text: JSON.stringify({
-                            error: e.message,
-                        }),
-                    },
-                ],
-            };
-        }
-    },
+    execute: getPodsHealth,
 };
-export const getPodMetricsTool = {
-    name: "get_pod_metrics",
+export async function getPodMetrics({ namespace, podName }) {
+    const apiUrl = process.env.DASHBOARD_API_URL;
+    const apiToken = process.env.K8S_API_TOKEN;
+    if (!apiUrl || !apiToken) {
+        return {
+            content: [{ type: "text", text: "Missing DASHBOARD_API_URL or DASHBOARD_API_TOKEN environment variables." }],
+            isError: true,
+        };
+    }
+    try {
+        const response = await fetch(`${apiUrl}/api/v1/pod/${namespace}/${podName}`, {
+            headers: {
+                'Authorization': `Bearer ${apiToken}`,
+                'Accept': 'application/json'
+            }
+        });
+        if (!response.ok) {
+            return {
+                content: [{ type: "text", text: `API Request failed with status: ${response.status}` }],
+                isError: true,
+            };
+        }
+        const data = await response.json();
+        return {
+            content: [{ type: "text", text: JSON.stringify(data, null, 2) }],
+        };
+    }
+    catch (e) {
+        return {
+            content: [{ type: "text", text: `Error fetching metrics: ${e.message}` }],
+            isError: true,
+        };
+    }
+}
+export const kubernetes_get_pod_metrics_tool = {
+    name: "kubernetes_get_pod_metrics",
     schema: {
         description: "Get CPU/Memory metrics for a specific pod",
         inputSchema: z.object({
@@ -538,38 +522,5 @@ export const getPodMetricsTool = {
             podName: z.string().describe("The name of the pod"),
         }),
     },
-    execute: async ({ namespace, podName }) => {
-        const apiUrl = process.env.DASHBOARD_API_URL;
-        const apiToken = process.env.K8S_API_TOKEN;
-        if (!apiUrl || !apiToken) {
-            return {
-                content: [{ type: "text", text: "Missing DASHBOARD_API_URL or DASHBOARD_API_TOKEN environment variables." }],
-                isError: true,
-            };
-        }
-        try {
-            const response = await fetch(`${apiUrl}/api/v1/pod/${namespace}/${podName}`, {
-                headers: {
-                    'Authorization': `Bearer ${apiToken}`,
-                    'Accept': 'application/json'
-                }
-            });
-            if (!response.ok) {
-                return {
-                    content: [{ type: "text", text: `API Request failed with status: ${response.status}` }],
-                    isError: true,
-                };
-            }
-            const data = await response.json();
-            return {
-                content: [{ type: "text", text: JSON.stringify(data, null, 2) }],
-            };
-        }
-        catch (e) {
-            return {
-                content: [{ type: "text", text: `Error fetching metrics: ${e.message}` }],
-                isError: true,
-            };
-        }
-    },
+    execute: getPodMetrics,
 };

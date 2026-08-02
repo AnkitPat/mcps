@@ -2,30 +2,32 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
 import { toolRegistry } from "./tools/registry.js";
 import express from "express";
-import cors from "cors";
 import crypto from "crypto";
 import { randomUUID } from "node:crypto";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { isInitializeRequest } from "@modelcontextprotocol/sdk/types.js";
+import { createAuthenticationMiddleware, getAuthConfig, protectedResourceMetadata, } from "./auth.js";
 const app = express();
-app.use(cors());
 app.use(express.json({
     type: [
         "application/json",
         "application/*+json"
-    ]
+    ],
+    limit: "1mb",
 }));
+const authConfig = getAuthConfig();
+const authenticate = createAuthenticationMiddleware(authConfig);
 const streamableTransports = {};
 const transportMap = new Map();
 function createServer() {
-    const server = new McpServer({ name: "kubernetes-mcp", version: "1.0.0" });
+    const server = new McpServer({ name: "Kubernetes MCP Server", version: "1.0.0", description: "Provides tools for managing and querying Kubernetes resources." });
     // Register tools dynamically from the registry
     for (const tool of toolRegistry) {
         // Wrap execute to log tool invocation
         const originalExecute = tool.execute;
         const wrappedExecute = async (args) => {
             const start = Date.now();
-            console.log(`[Tool] Invoking ${tool.name} with args:`, JSON.stringify(args));
+            console.log(`[Tool] Invoking ${tool.name}`);
             try {
                 const result = await originalExecute(args);
                 console.log(`[Tool] ${tool.name} success (duration: ${Date.now() - start}ms)`);
@@ -45,7 +47,7 @@ console.log("MCP Server Started");
 console.log("Registered tools:");
 toolRegistry.forEach(tool => console.log(`- ${tool.name}`));
 console.log(`Total tools registered: ${toolRegistry.length}`);
-app.get("/sse", async (req, res) => {
+app.get("/sse", authenticate, async (req, res) => {
     const sessionId = crypto.randomUUID();
     console.log(`[${sessionId}] SSE connection request. tools/list requested.`);
     console.log(`Returning ${toolRegistry.length} tools.`);
@@ -66,8 +68,9 @@ app.get("/sse", async (req, res) => {
         transportMap.delete(sessionId);
     });
 });
-app.post("/messages/:sessionId", async (req, res) => {
-    const transport = transportMap.get(req.params.sessionId);
+app.post("/messages/:sessionId", authenticate, async (req, res) => {
+    const sessionId = Array.isArray(req.params.sessionId) ? req.params.sessionId[0] : req.params.sessionId;
+    const transport = transportMap.get(sessionId);
     if (!transport) {
         res.status(404).send("Session not found");
         return;
@@ -80,42 +83,20 @@ app.post("/messages/:sessionId", async (req, res) => {
         res.status(500).send("Internal server error");
     }
 });
-app.post("/sse", (req, res) => {
-    console.log("POST /sse");
-    console.log(req.headers);
-    res.status(501).send("Not implemented");
-});
+const resourceMetadata = protectedResourceMetadata(authConfig);
+if (resourceMetadata) {
+    app.get("/.well-known/oauth-protected-resource", (_req, res) => {
+        res.json(resourceMetadata);
+    });
+}
 // app.use((req, res) => {
 //   console.log(`Unhandled request: ${req.method} ${req.originalUrl}`);
 //   res.status(404).json({
 //     message: 'Route not found'
 //   });
 // });
+app.use("/mcp", authenticate);
 app.post("/mcp", async (req, res) => {
-    console.log("\n========================================");
-    console.log("POST /mcp");
-    console.log("Headers:");
-    console.dir(req.headers, { depth: null });
-    console.log("Body:");
-    console.dir(req.body, { depth: null });
-    console.log("========================================");
-    // ---- Intercept outgoing response ----
-    const originalWrite = res.write.bind(res);
-    const originalEnd = res.end.bind(res);
-    res.write = (chunk, ...args) => {
-        console.log("\n========== RESPONSE WRITE ==========");
-        console.log(Buffer.from(chunk).toString("utf8"));
-        console.log("====================================\n");
-        return originalWrite(chunk, ...args);
-    };
-    res.end = (chunk, ...args) => {
-        if (chunk) {
-            console.log("\n========== RESPONSE END ==========");
-            console.log(Buffer.from(chunk).toString("utf8"));
-            console.log("==================================\n");
-        }
-        return originalEnd(chunk, ...args);
-    };
     const sessionId = req.headers["mcp-session-id"];
     let transport;
     if (sessionId && streamableTransports[sessionId]) {
@@ -157,10 +138,6 @@ app.post("/mcp", async (req, res) => {
     console.log("[MCP] transport.handleRequest() completed");
 });
 app.get("/mcp", async (req, res) => {
-    console.log("\n========================================");
-    console.log("GET /mcp");
-    console.dir(req.headers, { depth: null });
-    console.log("========================================");
     const sessionId = req.headers["mcp-session-id"];
     if (!sessionId || !streamableTransports[sessionId]) {
         console.log("[MCP] Unknown session:", sessionId);
@@ -184,7 +161,7 @@ app.get("/health", (_req, res) => {
         uptime: process.uptime()
     });
 });
-const port = 3000;
+const port = Number(process.env.PORT ?? 8080);
 app.listen(port, () => {
     console.log(`MCP Server listening on ${port}`);
 });

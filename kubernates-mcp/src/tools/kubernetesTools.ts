@@ -1,22 +1,63 @@
 import { z } from "zod";
 import { getK8sClients } from "../k8sClient.js";
 
-export const listDeploymentsTool = {
-  name: "list_deployments",
+export async function listDeployments({ namespace }: { namespace?: string }) {
+  try {
+    const { apps } = getK8sClients();
+
+    const res = namespace
+      ? await apps.listNamespacedDeployment({ namespace })
+      : await apps.listDeploymentForAllNamespaces();
+
+    const deployments = res.items || [];
+
+    const curatedDeployments = deployments.map((d) => ({
+      name: d.metadata?.name,
+      namespace: d.metadata?.namespace,
+      status: {
+        availableReplicas: d.status?.availableReplicas ?? 0,
+        desiredReplicas: d.spec?.replicas ?? 0,
+        readyReplicas: d.status?.readyReplicas ?? 0,
+      },
+      containers: d.spec?.template.spec?.containers.map((c) => ({
+        name: c.name,
+        image: c.image,
+      })) ?? [],
+      labels: d.spec?.selector?.matchLabels ?? {},
+    }));
+
+    return {
+      content: [{ type: "text" as const, text: JSON.stringify(curatedDeployments, null, 2) }],
+    };
+  } catch (e: any) {
+    return {
+      isError: true,
+      content: [{ type: "text" as const, text: `Error fetching deployments: ${e.message}` }],
+    };
+  }
+}
+
+export const kubernetes_list_deployments_tool = {
+  name: "kubernetes_list_deployments",
   schema: {
     title: "List Kubernetes Deployments",
     description: `
-Retrieve a curated list of Kubernetes deployments with their status, container images, and selector labels.
+Returns a list of Kubernetes deployments with status, images, and labels.
 
-Use this tool to:
-• View the overall state of workloads in a namespace
-• Quickly check replica counts (desired/ready/available)
-• Identify which images are running
-• Find selector labels for debugging
+Input:
+- namespace: Kubernetes namespace (optional).
+
+Output:
+A JSON-formatted list of deployments including:
+- Name
+- Namespace
+- Replica counts (desired/ready/available)
+- Container list
+- Selector labels
 
 Examples:
-- List all deployments: list_deployments()
-- List deployments in staging: list_deployments({ namespace: "eurocampings-staging" })
+- List all deployments: kubernetes_list_deployments()
+- List deployments in staging: kubernetes_list_deployments({ namespace: "eurocampings-staging" })
 `,
     annotations: {
       title: "List Kubernetes Deployments",
@@ -31,91 +72,16 @@ Examples:
         .describe("Kubernetes namespace. If omitted, lists all namespaces."),
     }),
   },
-  execute: async ({ namespace }: { namespace?: string }) => {
-    try {
-      const { apps } = getK8sClients();
-
-      const res = namespace
-        ? await apps.listNamespacedDeployment({ namespace })
-        : await apps.listDeploymentForAllNamespaces();
-
-      const deployments = res.items || [];
-
-      const curatedDeployments = deployments.map((d) => ({
-        name: d.metadata?.name,
-        namespace: d.metadata?.namespace,
-        status: {
-          availableReplicas: d.status?.availableReplicas ?? 0,
-          desiredReplicas: d.spec?.replicas ?? 0,
-          readyReplicas: d.status?.readyReplicas ?? 0,
-        },
-        containers: d.spec?.template.spec?.containers.map((c) => ({
-          name: c.name,
-          image: c.image,
-        })) ?? [],
-        labels: d.spec?.selector?.matchLabels ?? {},
-      }));
-
-      return {
-        content: [{ type: "text" as const, text: JSON.stringify(curatedDeployments, null, 2) }],
-      };
-    } catch (e: any) {
-      return {
-        isError: true,
-        content: [{ type: "text" as const, text: `Error fetching deployments: ${e.message}` }],
-      };
-    }
-  },
+  execute: listDeployments,
 };
 
-export const describePodTool = {
-  name: "describe_pod",
-
-  schema: {
-    title: "Describe Kubernetes Pod",
-
-    description: `
-Retrieve full details (spec, status, events, etc.) for a specific Kubernetes pod.
-Equivalent to 'kubectl describe pod <name>'.
-
-Use this tool to:
-• Inspect detailed pod configuration
-• Check pod status/phase transitions
-• View full container specifications (images, ports, env)
-• Troubleshoot scheduling, liveness/readiness, or runtime issues
-
-Examples:
-- Describe pod "web-server": describe_pod({ podName: "web-server" })
-- Describe pod in specific namespace: describe_pod({ podName: "web-server", namespace: "prod" })
-`,
-
-    annotations: {
-      title: "Describe Kubernetes Pod",
-      readOnlyHint: true,
-      idempotentHint: true,
-      openWorldHint: true,
-    },
-
-    inputSchema: z.object({
-      podName: z
-        .string()
-        .describe("The name of the pod to describe."),
-      namespace: z
-        .string()
-        .optional()
-        .describe(
-          "Optional Kubernetes namespace. If omitted, all namespaces will be searched."
-        ),
-    }),
-  },
-
-  execute: async ({
+export async function describePod({
     podName,
     namespace,
   }: {
     podName: string;
     namespace?: string;
-  }) => {
+  }) {
     try {
       const { core } = getK8sClients();
 
@@ -176,7 +142,6 @@ Examples:
         name: podName,
         namespace: targetNamespace,
       });
-      console.log(podRes)
 
       return {
         content: [
@@ -199,99 +164,53 @@ Examples:
         ],
       };
     }
-  },
-};
+  }
 
-export const getPodLogsTool = {
-  name: "get_pod_logs",
+export const kubernetes_describe_pod_tool = {
+  name: "kubernetes_describe_pod",
 
   schema: {
-    title: "Get Kubernetes Pod Logs",
+    title: "Describe Kubernetes Pod",
 
     description: `
-Retrieve and filter logs from Kubernetes pods.
+Retrieves full details for a specific Kubernetes pod.
 
-Use this tool for:
-• Debugging application errors
-• Troubleshooting specific incidents (e.g., 10am-11am)
-• Finding specific keywords in logs (e.g., "timeout", "error")
-• Checking logs from a specific point in time
+Input:
+- podName: The name of the pod to describe.
+- namespace: Kubernetes namespace (optional).
 
-Features:
-- Time-based: Use 'sinceSeconds' (relative) or 'sinceTime' (absolute ISO string).
-- Search: Use 'grep' to filter for specific keywords or regex patterns.
-- Context: Use 'grepContext' to see lines before/after a 'grep' match.
+Output:
+Detailed JSON object containing pod spec, status, events, etc.
 
 Examples:
-- Show logs for eurocampings-staging since 10:00 (sinceTime="2024-03-25T10:00:00Z")
-- Find "ConnectionTimeout" in frontend logs with 10 lines of context (grep="ConnectionTimeout", grepContext=10)
-- Get last 1 hour of api logs (sinceSeconds=3600)
+- Describe pod "web-server": kubernetes_describe_pod({ podName: "web-server" })
+- Describe pod in specific namespace: kubernetes_describe_pod({ podName: "web-server", namespace: "prod" })
 `,
 
     annotations: {
-      title: "Get Kubernetes Pod Logs",
+      title: "Describe Kubernetes Pod",
       readOnlyHint: true,
       idempotentHint: true,
       openWorldHint: true,
     },
 
-    inputSchema: z
-      .object({
-        namespace: z
-          .string()
-          .optional()
-          .describe(
-            "Kubernetes namespace. Examples: eurocampings-staging, eurocampings-prod, default."
-          ),
-
-        podSearch: z
-          .string()
-          .optional()
-          .describe(
-            "Optional partial pod name filter. Examples: api, frontend, worker."
-          ),
-
-        sinceSeconds: z
-          .number()
-          .optional()
-          .describe(
-            "Relative time in seconds before the current time from which to show logs."
-          ),
-
-        sinceTime: z
-          .string()
-          .optional()
-          .describe(
-            "Absolute ISO 8601 timestamp from which to show logs (e.g., '2024-03-25T10:00:00Z')."
-          ),
-
-        tailLines: z
-          .number()
-          .optional()
-          .describe(
-            "Number of lines to return from the end of the logs. Default 50, max 1000."
-          ),
-
-        grep: z
-          .string()
-          .optional()
-          .describe(
-            "Optional search string or regex to filter log lines. Only lines matching this (and context) will be returned."
-          ),
-
-        grepContext: z
-          .number()
-          .optional()
-          .describe(
-            "Number of lines of context to show around each 'grep' match. Default 0."
-          ),
-      })
-      .refine((data) => data.namespace || data.podSearch, {
-        message: "Provide either namespace or podSearch.",
-      }),
+    inputSchema: z.object({
+      podName: z
+        .string()
+        .describe("The name of the pod to describe."),
+      namespace: z
+        .string()
+        .optional()
+        .describe(
+          "Optional Kubernetes namespace. If omitted, all namespaces will be searched."
+        ),
+    }),
   },
 
-  execute: async ({
+  execute: describePod,
+};
+
+export async function getPodLogs({
     namespace,
     podSearch,
     sinceSeconds,
@@ -307,7 +226,7 @@ Examples:
     tailLines?: number;
     grep?: string;
     grepContext?: number;
-  }) => {
+  }) {
     try {
       const {core} = getK8sClients();
             const res = namespace
@@ -431,82 +350,105 @@ Examples:
         ],
       };
     }
-  },
-};
+  }
 
-export const countPodsTool = {
-  name: "count_pods",
+export const kubernetes_get_pod_logs_tool = {
+  name: "kubernetes_get_pod_logs",
 
   schema: {
-    title: "Count Kubernetes Pods",
+    title: "Get Kubernetes Pod Logs",
 
     description: `
-Return the CURRENT number of Kubernetes pods.
+Retrieves logs from Kubernetes pods with optional filtering.
 
-This tool MUST be used whenever the user asks:
+Input:
+- namespace: Kubernetes namespace (optional).
+- podSearch: Partial pod name filter (optional).
+- sinceSeconds: Relative time in seconds (optional).
+- sinceTime: Absolute ISO 8601 timestamp (optional).
+- tailLines: Number of lines to return (optional).
+- grep: Search string/regex to filter log lines (optional).
+- grepContext: Number of context lines around matches (optional).
 
-• how many pods
-• pod count
-• number of pods
-• total pods
-• count pods
-• pods in a namespace
-• workload size
-
-Never estimate the answer.
-Always query the Kubernetes cluster.
+Output:
+Logs from matching pods.
 
 Examples:
-
-User:
-How many pods are running?
-
-Tool:
-count_pods()
-
----
-
-User:
-Tell me the number of pods in eurocampings-staging.
-
-Tool:
-count_pods({
-  namespace: "eurocampings-staging"
-})
-
----
-
-User:
-Pod count for production.
-
-Tool:
-count_pods({
-  namespace: "production"
-})
+- Logs for eurocampings-staging since 10:00: kubernetes_get_pod_logs({ namespace: "eurocampings-staging", sinceTime: "2024-03-25T10:00:00Z" })
+- Find "ConnectionTimeout" in frontend logs: kubernetes_get_pod_logs({ podSearch: "frontend", grep: "ConnectionTimeout", grepContext: 10 })
 `,
 
     annotations: {
-      title: "Count Kubernetes Pods",
+      title: "Get Kubernetes Pod Logs",
       readOnlyHint: true,
       idempotentHint: true,
       openWorldHint: true,
     },
 
-    inputSchema: z.object({
-      namespace: z
-        .string()
-        .optional()
-        .describe(
-          "Optional Kubernetes namespace. Examples: eurocampings-staging, eurocampings-prod, default. If omitted, all namespaces are counted."
-        ),
-    }),
+    inputSchema: z
+      .object({
+        namespace: z
+          .string()
+          .optional()
+          .describe(
+            "Kubernetes namespace. Examples: eurocampings-staging, eurocampings-prod, default."
+          ),
+
+        podSearch: z
+          .string()
+          .optional()
+          .describe(
+            "Optional partial pod name filter. Examples: api, frontend, worker."
+          ),
+
+        sinceSeconds: z
+          .number()
+          .optional()
+          .describe(
+            "Relative time in seconds before the current time from which to show logs."
+          ),
+
+        sinceTime: z
+          .string()
+          .optional()
+          .describe(
+            "Absolute ISO 8601 timestamp from which to show logs (e.g., '2024-03-25T10:00:00Z')."
+          ),
+
+        tailLines: z
+          .number()
+          .optional()
+          .describe(
+            "Number of lines to return from the end of the logs. Default 50, max 1000."
+          ),
+
+        grep: z
+          .string()
+          .optional()
+          .describe(
+            "Optional search string or regex to filter log lines. Only lines matching this (and context) will be returned."
+          ),
+
+        grepContext: z
+          .number()
+          .optional()
+          .describe(
+            "Number of lines of context to show around each 'grep' match. Default 0."
+          ),
+      })
+      .refine((data) => data.namespace || data.podSearch, {
+        message: "Provide either namespace or podSearch.",
+      }),
   },
 
-  execute: async ({
+  execute: getPodLogs,
+};
+
+export async function countPods({
     namespace,
   }: {
     namespace?: string;
-  }) => {
+  }) {
     try {
       const {core} = getK8sClients();
       const res = namespace
@@ -541,51 +483,26 @@ count_pods({
         ],
       };
     }
-  },
-};
+  }
 
-export const getPodsHealthTool = {
-  name: "get_pods_health",
+export const kubernetes_count_pods_tool = {
+  name: "kubernetes_count_pods",
 
   schema: {
-    title: "Get Kubernetes Pod Health",
+    title: "Count Kubernetes Pods",
 
     description: `
-Retrieve the runtime health of Kubernetes pods.
+Returns the current number of Pods in a Kubernetes namespace or across the cluster.
 
-Use this tool ONLY when the user asks about:
+Input:
+- namespace: Optional Kubernetes namespace. If omitted, all namespaces are counted.
 
-• pod health
-• pod status
-• running pods
-• failed pods
-• pending pods
-• CrashLoopBackOff
-• unhealthy pods
-• readiness
-• liveness
-
-DO NOT use this tool for counting pods.
-
-If the user asks:
-
-- How many pods?
-- Pod count?
-- Number of pods?
-
-Use the "count_pods" tool instead.
-
-Examples:
-
-- Check pod health
-- Are any pods unhealthy?
-- Show failed pods
-- Which pods are Pending?
-- Are all pods Running?
+Output:
+The total count of pods matching the criteria.
 `,
 
     annotations: {
-      title: "Get Kubernetes Pod Health",
+      title: "Count Kubernetes Pods",
       readOnlyHint: true,
       idempotentHint: true,
       openWorldHint: true,
@@ -594,17 +511,21 @@ Examples:
     inputSchema: z.object({
       namespace: z
         .string()
+        .optional()
         .describe(
-          "Kubernetes namespace to inspect. Examples: eurocampings-staging, eurocampings-prod."
+          "Optional Kubernetes namespace. If omitted, all namespaces are counted."
         ),
     }),
   },
 
-  execute: async ({
+  execute: countPods,
+};
+
+export async function getPodsHealth({
     namespace,
   }: {
     namespace: string;
-  }) => {
+  }) {
     try {
       const {core} = getK8sClients();
 
@@ -641,19 +562,44 @@ Examples:
         ],
       };
     }
-  },
-};
+  }
 
-export const getPodMetricsTool = {
-  name: "get_pod_metrics",
+export const kubernetes_get_pods_health_tool = {
+  name: "kubernetes_get_pods_health",
+
   schema: {
-    description: "Get CPU/Memory metrics for a specific pod",
+    title: "Get Kubernetes Pod Health",
+
+    description: `
+Returns the runtime health (phase) of Kubernetes pods in a namespace.
+
+Input:
+- namespace: Kubernetes namespace to inspect.
+
+Output:
+A list of pods with their name and phase (e.g., Running, Pending, Failed).
+`,
+
+    annotations: {
+      title: "Get Kubernetes Pod Health",
+      readOnlyHint: true,
+      idempotentHint: true,
+      openWorldHint: true,
+    },
+
     inputSchema: z.object({
-      namespace: z.string().describe("The namespace of the pod"),
-      podName: z.string().describe("The name of the pod"),
+      namespace: z
+        .string()
+        .describe(
+          "Kubernetes namespace to inspect."
+        ),
     }),
   },
-  execute: async ({ namespace, podName }: { namespace: string; podName: string }) => {
+
+  execute: getPodsHealth,
+};
+
+export async function getPodMetrics({ namespace, podName }: { namespace: string; podName: string }) {
     const apiUrl = process.env.DASHBOARD_API_URL;
     const apiToken = process.env.K8S_API_TOKEN;
 
@@ -689,5 +635,16 @@ export const getPodMetricsTool = {
         isError: true,
       };
     }
+  }
+
+export const kubernetes_get_pod_metrics_tool = {
+  name: "kubernetes_get_pod_metrics",
+  schema: {
+    description: "Get CPU/Memory metrics for a specific pod",
+    inputSchema: z.object({
+      namespace: z.string().describe("The namespace of the pod"),
+      podName: z.string().describe("The name of the pod"),
+    }),
   },
+  execute: getPodMetrics,
 };

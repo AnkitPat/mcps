@@ -2,3 +2,16 @@ Tasks:
 - [x] Task 1: Implement list_deployments Tool
 - [x] Task 2: Register Tool in registry.ts
 - [x] Task 3: Build and Verify
+- [x] Brainstorming: Explore project context
+- [x] Brainstorming: Offer visual companion
+- [x] Brainstorming: Ask clarifying questions
+- [x] Brainstorming: Propose 2-3 approaches
+- [x] Brainstorming: Present design sections
+- [x] Brainstorming: Write design doc
+- [x] Brainstorming: Spec self-review
+- [x] Brainstorming: User review spec
+- [x] Brainstorming: Transition to implementation (writing-plans)
+- [x] Implementation: Prepare Core Logic
+- [x] Implementation: Scaffold Plugin Adapter
+- [x] Implementation: Plugin Manifest and API Spec
+- [x] Implementation: Bridge Adapter to Core
