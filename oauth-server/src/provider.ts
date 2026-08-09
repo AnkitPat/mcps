@@ -1,10 +1,10 @@
-import { Provider, Configuration } from 'oidc-provider';
+import { Provider, Configuration, Adapter } from 'oidc-provider';
 import { findUserByEmail } from './users.js';
 import { PostgresAdapter } from './postgresAdapter.js';
 
 export const initProvider = async (issuer: string) => {
     const configuration: Configuration = {
-        adapter: PostgresAdapter as any,
+        adapter: PostgresAdapter as unknown as new (name: string) => Adapter,
         clients: [
             {
                 client_id: 'chatgpt',
