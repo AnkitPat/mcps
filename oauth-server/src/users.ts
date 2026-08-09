@@ -12,12 +12,17 @@ interface User {
     role: string;
 }
 
-const usersPath = path.join(__dirname, '..', 'config', 'users.json');
+const usersPath = process.env.USERS_FILE_PATH || path.join(__dirname, '..', 'config', 'users.json');
 let users: User[] = [];
 
 export const loadUsers = async () => {
-    const data = await fs.readFile(usersPath, 'utf-8');
-    users = JSON.parse(data);
+    try {
+        const data = await fs.readFile(usersPath, 'utf-8');
+        users = JSON.parse(data);
+    } catch (error) {
+        console.error(`Failed to load users from ${usersPath}:`, error);
+        throw error;
+    }
 };
 
 export const findUserByEmail = (email: string) => users.find(u => u.email === email);

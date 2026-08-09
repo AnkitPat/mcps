@@ -3,6 +3,10 @@ import { findUserByEmail } from './users.js';
 import { PostgresAdapter } from './postgresAdapter.js';
 
 export const initProvider = async (issuer: string) => {
+    if (!process.env.JWKS) {
+        throw new Error('JWKS environment variable is required');
+    }
+    
     const configuration: Configuration = {
         adapter: PostgresAdapter as unknown as new (name: string) => Adapter,
         clients: [
@@ -14,6 +18,10 @@ export const initProvider = async (issuer: string) => {
                 grant_types: ['authorization_code', 'refresh_token'],
             },
         ],
+        jwks: JSON.parse(process.env.JWKS),
+        cookies: {
+            keys: [process.env.SESSION_SECRET || 'a-very-long-and-secure-session-secret'],
+        },
         // Combined claims logic
         claims: {
             openid: ['sub', 'role'],
