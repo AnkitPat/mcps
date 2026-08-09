@@ -1,4 +1,4 @@
-import getPool from './db';
+import getPool from './db.js';
 
 const rowToPayload = (row: { payload: string; consumed_at: number | null } | undefined) => {
   if (!row) return undefined;
@@ -15,7 +15,7 @@ export class PostgresAdapter {
     this.model = name;
     this.pool = poolInstance || getPool();
   }
-...
+
   async upsert(id: string, payload: any, expiresIn: number) {
     const expiresAt = expiresIn ? Math.floor(Date.now() / 1000) + expiresIn : null;
     const query = `
