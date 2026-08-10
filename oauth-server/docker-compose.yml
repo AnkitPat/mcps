@@ -1,0 +1,12 @@
+services:
+  oauth-server:
+    build: .
+    ports:
+      - "4000:4000"
+    environment:
+      - PORT=4000
+      - ISSUER=http://localhost:4000
+      - CLIENT_ID=chatgpt
+      - CLIENT_SECRET=super-secret-key
+      - JWT_AUDIENCE=kubernetes-mcp
+      - SESSION_SECRET=a-very-long-session-secret

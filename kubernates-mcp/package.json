@@ -20,7 +20,8 @@
     "@kubernetes/client-node": "^1.4.0",
     "@modelcontextprotocol/sdk": "^1.29.0",
     "cors": "^2.8.6",
-    "express": "^5.2.1"
+    "express": "^5.2.1",
+    "jose": "^6.2.7"
   },
   "devDependencies": {
     "@modelcontextprotocol/inspector": "^2.0.0",
