@@ -1,0 +1,8 @@
+.env
+.temp
+**/node_modules/*
+/docs/*
+
+oidc-data.db
+oidc-data.db-wal
+oidc-data.db-shm
