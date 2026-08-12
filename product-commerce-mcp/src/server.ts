@@ -107,9 +107,14 @@ server.tool(
           }
         ]
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
+      if (error instanceof ComparisonError) {
+        return {
+          content: [{ type: "text", text: JSON.stringify(error.toJSON(), null, 2) }]
+        };
+      }
       return {
-        content: [{ type: "text", text: "Error: " + error.message }]
+        content: [{ type: "text", text: "Error: " + (error instanceof Error ? error.message : "Unknown error") }]
       };
     }
   }
