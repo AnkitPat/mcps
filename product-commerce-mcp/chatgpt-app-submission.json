@@ -1,0 +1,116 @@
+{
+  "$schema": "https://developers.openai.com/apps-sdk/schemas/chatgpt-app-submission.v1.json",
+  "schema_version": 1,
+  "app_info": {
+    "display_name": "Product Commerce",
+    "subtitle": "Find and compare products",
+    "description": "Product Commerce helps users search a product catalog, view complete product details, and compare products by price, rating, and attributes.",
+    "category": "SHOPPING"
+  },
+  "tools": {
+    "list_products": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Searches the in-memory product catalog and returns matching products without changing data.",
+        "open_world_justification": "Does not publish content or modify any external or third-party system.",
+        "destructive_justification": "Does not delete, overwrite, revoke, or irreversibly change data."
+      }
+    },
+    "get_product_details": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Retrieves a catalog product by its ID or name without changing data.",
+        "open_world_justification": "Does not publish content or modify any external or third-party system.",
+        "destructive_justification": "Does not delete, overwrite, revoke, or irreversibly change data."
+      }
+    },
+    "compare_products": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Looks up catalog products and produces a comparison without changing data.",
+        "open_world_justification": "Does not publish content or modify any external or third-party system.",
+        "destructive_justification": "Does not delete, overwrite, revoke, or irreversibly change data."
+      }
+    }
+  },
+  "test_cases": [
+    {
+      "description": "Search the catalog by category and price.",
+      "user_prompt": "Show me laptops under ₹80,000.",
+      "file_attachment_urls": null,
+      "tools_triggered": "list_products",
+      "expected_output": "Returns matching laptops with their prices and core catalog details.",
+      "expected_output_url": null
+    },
+    {
+      "description": "Search the catalog by a brand-related query.",
+      "user_prompt": "What Apple laptops are available?",
+      "file_attachment_urls": null,
+      "tools_triggered": "list_products",
+      "expected_output": "Returns catalog products that match the Apple laptop request.",
+      "expected_output_url": null
+    },
+    {
+      "description": "Get a product using its catalog ID.",
+      "user_prompt": "Give me the full details for product P1001.",
+      "file_attachment_urls": null,
+      "tools_triggered": "get_product_details",
+      "expected_output": "Returns the selected product's price, availability, rating, and specifications.",
+      "expected_output_url": null
+    },
+    {
+      "description": "Get a product using its name.",
+      "user_prompt": "What are the specifications of the MacBook Air M3?",
+      "file_attachment_urls": null,
+      "tools_triggered": "get_product_details",
+      "expected_output": "Returns the complete catalog record for the MacBook Air M3.",
+      "expected_output_url": null
+    },
+    {
+      "description": "Compare two catalog products.",
+      "user_prompt": "Compare the ThinkBook Pro 14 and Inspiron 14 Plus on price and rating.",
+      "file_attachment_urls": null,
+      "tools_triggered": "compare_products",
+      "expected_output": "Returns a side-by-side comparison of the requested products' brand, price, and rating.",
+      "expected_output_url": null
+    }
+  ],
+  "negative_test_cases": [
+    {
+      "description": "Do not trigger for order placement.",
+      "user_prompt": "Buy the MacBook Air M3 and ship it to my home.",
+      "file_attachment_urls": null,
+      "tools_triggered": null,
+      "expected_output": "The app should not be invoked because it cannot place orders or collect shipping details.",
+      "expected_output_url": null
+    },
+    {
+      "description": "Do not trigger for order tracking.",
+      "user_prompt": "Where is my order ORD-10001?",
+      "file_attachment_urls": null,
+      "tools_triggered": null,
+      "expected_output": "The app should not be invoked because order tracking is not an exposed workflow.",
+      "expected_output_url": null
+    },
+    {
+      "description": "Do not trigger for an unrelated request.",
+      "user_prompt": "Schedule a meeting for tomorrow afternoon.",
+      "file_attachment_urls": null,
+      "tools_triggered": null,
+      "expected_output": "The app should not be invoked because calendar management is outside its supported workflows.",
+      "expected_output_url": null
+    }
+  ]
+}

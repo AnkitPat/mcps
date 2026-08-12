@@ -21,16 +21,17 @@ import {
   compareProductsInputSchema,
   compareProducts
 } from "./tools/compare_products.js";
+import { ComparisonError } from "./types/compare.js";
 
 // import {
 //   orderProductInputSchema,
 //   orderProduct
 // } from "./tools/order-product.js";
 
-// import {
-//   getOrdersInputSchema,
-//   getOrders
-// } from "./tools/get-orders.js";
+import {
+  getOrdersInputSchema,
+  getOrders
+} from "./tools/get_orders.js";
 
 const app = express();
 
@@ -53,6 +54,11 @@ function createServer() {
     "list_products",
     "Search and list products available for purchase.",
     listProductsInputSchema,
+    {
+      readOnlyHint: true,
+      openWorldHint: false,
+      destructiveHint: false
+    },
     async (args) => {
       const result = listProducts(args);
 
@@ -71,6 +77,11 @@ server.tool(
   "get_product_details",
   "Get complete details for a specific product.",
   getProductDetailsInputSchema,
+  {
+    readOnlyHint: true,
+    openWorldHint: false,
+    destructiveHint: false
+  },
   async (args) => {
     try {
       const result = getProductDetails(args as { productId?: string; productName?: string; });
@@ -95,6 +106,11 @@ server.tool(
   "compare_products",
   "Compare multiple products across price, rating and attributes.",
   compareProductsInputSchema,
+  {
+    readOnlyHint: true,
+    openWorldHint: false,
+    destructiveHint: false
+  },
   async (args) => {
     try {
       const result = compareProducts(args as { products: string[] });
@@ -139,23 +155,24 @@ server.tool(
 //     }
 //   );
 
-//   server.tool(
-//     "get_orders",
-//     "Get orders belonging to the current user.",
-//     getOrdersInputSchema,
-//     async (args) => {
-//       const result = getOrders(args);
+server.tool(
+  "get_orders",
+  "Get orders belonging to the current user.",
+  getOrdersInputSchema,
+  async (args) => {
+    const result = getOrders(args as any);
 
-//       return {
-//         content: [
-//           {
-//             type: "text",
-//             text: JSON.stringify(result, null, 2)
-//           }
-//         ]
-//       };
-//     }
-//   );
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify(result, null, 2)
+        }
+      ]
+    };
+  }
+);
+
 
   return server;
 }
