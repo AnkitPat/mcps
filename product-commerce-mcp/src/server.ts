@@ -13,14 +13,14 @@ import { listProducts, listProductsInputSchema } from "./tools/list_products.js"
 
 
 import {
-  getProductDetailsInputSchema
-  // getProductDetails
+  getProductDetailsInputSchema,
+  getProductDetails
 } from "./tools/get_product_details.js";
 
-// import {
-//   compareProductsInputSchema,
-//   compareProducts
-// } from "./tools/compare-products.js";
+import {
+  compareProductsInputSchema,
+  compareProducts
+} from "./tools/compare_products.js";
 
 // import {
 //   orderProductInputSchema,
@@ -67,41 +67,42 @@ function createServer() {
     }
   );
 
-//   server.tool(
-//     "get_product_details",
-//     "Get complete details for a specific product.",
-//     getProductDetailsInputSchema,
-//     async (args) => {
-//       const result = getProductDetails(args);
+server.tool(
+  "get_product_details",
+  "Get complete details for a specific product.",
+  getProductDetailsInputSchema,
+  async (args) => {
+    const result = getProductDetails(args as any);
 
-//       return {
-//         content: [
-//           {
-//             type: "text",
-//             text: JSON.stringify(result, null, 2)
-//           }
-//         ]
-//       };
-//     }
-//   );
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify(result, null, 2)
+        }
+      ]
+    };
+  }
+);
 
-//   server.tool(
-//     "compare_products",
-//     "Compare multiple products across price, rating and attributes.",
-//     compareProductsInputSchema,
-//     async (args) => {
-//       const result = compareProducts(args);
 
-//       return {
-//         content: [
-//           {
-//             type: "text",
-//             text: JSON.stringify(result, null, 2)
-//           }
-//         ]
-//       };
-//     }
-//   );
+server.tool(
+  "compare_products",
+  "Compare multiple products across price, rating and attributes.",
+  compareProductsInputSchema,
+  async (args) => {
+    const result = compareProducts(args);
+
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify(result, null, 2)
+        }
+      ]
+    };
+  }
+);
 
 //   server.tool(
 //     "order_product",
