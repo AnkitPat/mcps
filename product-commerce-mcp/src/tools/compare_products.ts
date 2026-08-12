@@ -2,14 +2,19 @@ import { z } from "zod";
 import { Product } from "../types/product.js";
 import { getProductDetails } from "./get_product_details.js";
 
-export const compareProductsInputSchema = {
+export const compareProductsInputSchema = z.object({
   products: z
     .array(z.string())
     .min(2, "At least 2 products are required")
     .describe("Array of product IDs or names to compare"),
-};
+});
 
 export function compareProducts(args: { products: string[] }): string {
+  // Validate input
+  if (args.products.length < 2) {
+    throw new Error("At least 2 products are required");
+  }
+
   const resolvedProducts = args.products.map(idOrName => {
     try {
       return getProductDetails({ productId: idOrName });
@@ -24,7 +29,7 @@ export function compareProducts(args: { products: string[] }): string {
 
   const foundProducts = resolvedProducts.filter((p): p is Product => p !== null);
   if (foundProducts.length < 2) {
-    return "Not enough products found to compare.";
+    throw new Error("Products not found");
   }
 
   // Comparison Logic (Basic)

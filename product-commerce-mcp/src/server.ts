@@ -72,37 +72,49 @@ server.tool(
   "Get complete details for a specific product.",
   getProductDetailsInputSchema,
   async (args) => {
-    const result = getProductDetails(args as any);
+    try {
+      const result = getProductDetails(args as { productId?: string; productName?: string; });
 
-    return {
-      content: [
-        {
-          type: "text",
-          text: JSON.stringify(result, null, 2)
-        }
-      ]
-    };
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify(result, null, 2)
+          }
+        ]
+      };
+    } catch (error: any) {
+      return {
+        content: [{ type: "text", text: "Error: " + error.message }]
+      };
+    }
   }
 );
-
 
 server.tool(
   "compare_products",
   "Compare multiple products across price, rating and attributes.",
   compareProductsInputSchema,
   async (args) => {
-    const result = compareProducts(args);
+    try {
+      const result = compareProducts(args as { products: string[] });
 
-    return {
-      content: [
-        {
-          type: "text",
-          text: JSON.stringify(result, null, 2)
-        }
-      ]
-    };
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify(result, null, 2)
+          }
+        ]
+      };
+    } catch (error: any) {
+      return {
+        content: [{ type: "text", text: "Error: " + error.message }]
+      };
+    }
   }
 );
+
 
 //   server.tool(
 //     "order_product",
