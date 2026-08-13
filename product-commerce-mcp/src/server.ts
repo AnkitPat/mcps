@@ -1,7 +1,10 @@
 import express from "express";
 import { randomUUID } from "node:crypto";
+import path from "path";
+import { fileURLToPath } from "url";
 
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 import {
   StreamableHTTPServerTransport
 } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
@@ -32,8 +35,16 @@ import {
   getOrdersInputSchema,
   getOrders
 } from "./tools/get_orders.js";
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp";
 
 const app = express();
+
+app.use(express.static("public"));
+
+app.get("/support", (_req, res) => res.sendFile("support.html", { root: "public" }));
+app.get("/privacy", (_req, res) => res.sendFile("privacy.html", { root: "public" }));
+app.get("/terms", (_req, res) => res.sendFile("terms.html", { root: "public" }));
+app.get("/.well-known/openai-apps-challenge", (_req, res) => res.send("PVZEeBRVNjJCzfqf1DtVgYI9up6GvEyh3egLW34lKBk"));
 
 app.use(express.json());
 
@@ -159,6 +170,11 @@ server.tool(
   "get_orders",
   "Get orders belonging to the current user.",
   getOrdersInputSchema,
+  {
+    readOnlyHint: true,
+    openWorldHint: false,
+    destructiveHint: false
+  },
   async (args) => {
     const result = getOrders(args as any);
 
@@ -172,6 +188,18 @@ server.tool(
     };
   }
 );
+
+app.post("/update-challenge", express.text(), (req, res) => {
+  const token = req.body;
+  if (!token) {
+    return res.status(400).send("Token is required");
+  }
+  const fs = require("fs");
+  const path = require("path");
+  const filePath = path.join(__dirname, "../public/.well-known/openai-apps-challenge");
+  fs.writeFileSync(filePath, token);
+  res.send("Challenge token updated");
+});
 
 
   return server;
