@@ -1,6 +1,9 @@
 import express from "express";
 import { randomUUID } from "node:crypto";
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import path from "path";
+import { fileURLToPath } from "url";
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { isInitializeRequest } from "@modelcontextprotocol/sdk/types.js";
 import { listProducts, listProductsInputSchema } from "./tools/list_products.js";
@@ -12,7 +15,13 @@ import { ComparisonError } from "./types/compare.js";
 //   orderProduct
 // } from "./tools/order-product.js";
 import { getOrdersInputSchema, getOrders } from "./tools/get_orders.js";
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp";
 const app = express();
+app.use(express.static("public"));
+app.get("/support", (_req, res) => res.sendFile("support.html", { root: "public" }));
+app.get("/privacy", (_req, res) => res.sendFile("privacy.html", { root: "public" }));
+app.get("/terms", (_req, res) => res.sendFile("terms.html", { root: "public" }));
+app.get("/.well-known/openai-apps-challenge", (_req, res) => res.send("PVZEeBRVNjJCzfqf1DtVgYI9up6GvEyh3egLW34lKBk"));
 app.use(express.json());
 const PORT = Number(process.env.PORT ?? 3000);
 const transports = {};
