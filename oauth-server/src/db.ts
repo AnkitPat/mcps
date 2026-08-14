@@ -1,22 +1,16 @@
-import pkg from 'pg';
-const { Pool } = pkg;
+import Database from 'better-sqlite3';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
-let pool: any;
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const DB_PATH = process.env.NODE_ENV === 'test' ? ':memory:' : path.join(__dirname, '../commerce.db');
 
-export default function getPool() {
-  if (!pool) {
-    if (!process.env.DATABASE_URL) {
-      throw new Error('DATABASE_URL is required');
-    }
+export const db = new Database(DB_PATH);
 
-    // Use DATABASE_URL from environment
-    pool = new Pool({
-      connectionString: process.env.DATABASE_URL,
-      // Add SSL for managed databases
-      ssl: {
-        rejectUnauthorized: false
-      }
-    });
-  }
-  return pool;
+// Enable foreign key support
+db.pragma('foreign_keys = ON');
+
+export function getDb() {
+  return db;
 }
