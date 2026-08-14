@@ -11,6 +11,7 @@ export const db = new Database(DB_PATH);
 // Enable foreign key support
 db.pragma('foreign_keys = ON');
 
+// Get the database instance
 export function getDb() {
   return db;
 }
