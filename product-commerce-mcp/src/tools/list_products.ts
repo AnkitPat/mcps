@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { products } from "../data/products.js";
+import { listProducts as dalListProducts } from "../dal.js";
 
 export const listProductsInputSchema = {
   query: z
@@ -38,43 +38,5 @@ export function listProducts(args: {
   maxPrice?: number;
   limit?: number;
 }) {
-  const query = args.query?.toLowerCase();
-
-  let result = products.filter((product) => {
-    if (query) {
-      const searchableText = [
-        product.name,
-        product.brand,
-        product.description,
-        product.category
-      ]
-        .join(" ")
-        .toLowerCase();
-
-      if (!searchableText.includes(query)) {
-        return false;
-      }
-    }
-
-    if (
-      args.category &&
-      product.category.toLowerCase() !== args.category.toLowerCase()
-    ) {
-      return false;
-    }
-
-    if (args.minPrice !== undefined && product.price < args.minPrice) {
-      return false;
-    }
-
-    if (args.maxPrice !== undefined && product.price > args.maxPrice) {
-      return false;
-    }
-
-    return true;
-  });
-
-  result = result.slice(0, args.limit ?? 10);
-
-  return result;
+  return dalListProducts(args);
 }
