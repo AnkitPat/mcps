@@ -12,30 +12,8 @@ import {
 import {
   isInitializeRequest
 } from "@modelcontextprotocol/sdk/types.js";
-import { listProducts, listProductsInputSchema } from "./tools/list_products.js";
-
-
-import {
-  getProductDetailsInputSchema,
-  getProductDetails
-} from "./tools/get_product_details.js";
-
-import {
-  compareProductsInputSchema,
-  compareProducts
-} from "./tools/compare_products.js";
-import { ComparisonError } from "./types/compare.js";
-
-// import {
-//   orderProductInputSchema,
-//   orderProduct
-// } from "./tools/order-product.js";
-
-import {
-  getOrdersInputSchema,
-  getOrders
-} from "./tools/get_orders.js";
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp";
+import { registerTools } from "./tools/index.js";
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 
 const app = express();
 
@@ -61,134 +39,10 @@ function createServer() {
     version: "1.0.0"
   });
 
-  server.tool(
-    "list_products",
-    "Search and list products available for purchase.",
-    listProductsInputSchema,
-    {
-      readOnlyHint: true,
-      openWorldHint: false,
-      destructiveHint: false
-    },
-    async (args) => {
-      const result = listProducts(args);
+  registerTools(server);
 
-      return {
-        content: [
-          {
-            type: "text",
-            text: JSON.stringify(result, null, 2)
-          }
-        ]
-      };
-    }
-  );
-
-server.tool(
-  "get_product_details",
-  "Get complete details for a specific product.",
-  getProductDetailsInputSchema,
-  {
-    readOnlyHint: true,
-    openWorldHint: false,
-    destructiveHint: false
-  },
-  async (args) => {
-    try {
-      const result = getProductDetails(args as { productId?: string; productName?: string; });
-
-      return {
-        content: [
-          {
-            type: "text",
-            text: JSON.stringify(result, null, 2)
-          }
-        ]
-      };
-    } catch (error: any) {
-      return {
-        content: [{ type: "text", text: "Error: " + error.message }]
-      };
-    }
-  }
-);
-
-server.tool(
-  "compare_products",
-  "Compare multiple products across price, rating and attributes.",
-  compareProductsInputSchema,
-  {
-    readOnlyHint: true,
-    openWorldHint: false,
-    destructiveHint: false
-  },
-  async (args) => {
-    try {
-      const result = compareProducts(args as { products: string[] });
-
-      return {
-        content: [
-          {
-            type: "text",
-            text: JSON.stringify(result, null, 2)
-          }
-        ]
-      };
-    } catch (error: unknown) {
-      if (error instanceof ComparisonError) {
-        return {
-          content: [{ type: "text", text: JSON.stringify(error.toJSON(), null, 2) }]
-        };
-      }
-      return {
-        content: [{ type: "text", text: "Error: " + (error instanceof Error ? error.message : "Unknown error") }]
-      };
-    }
-  }
-);
-
-
-//   server.tool(
-//     "order_product",
-//     "Place an order for a product.",
-//     orderProductInputSchema,
-//     async (args) => {
-//       const result = orderProduct(args);
-
-//       return {
-//         content: [
-//           {
-//             type: "text",
-//             text: JSON.stringify(result, null, 2)
-//           }
-//         ]
-//       };
-//     }
-//   );
-
-server.tool(
-  "get_orders",
-  "Get orders belonging to the current user.",
-  getOrdersInputSchema,
-  {
-    readOnlyHint: true,
-    openWorldHint: false,
-    destructiveHint: false
-  },
-  async (args) => {
-    const result = getOrders(args as any);
-
-    return {
-      content: [
-        {
-          type: "text",
-          text: JSON.stringify(result, null, 2)
-        }
-      ]
-    };
-  }
-);
-
+  return server;
+}
 app.post("/update-challenge", express.text(), (req, res) => {
   const token = req.body;
   if (!token) {
@@ -200,10 +54,6 @@ app.post("/update-challenge", express.text(), (req, res) => {
   fs.writeFileSync(filePath, token);
   res.send("Challenge token updated");
 });
-
-
-  return server;
-}
 
 app.post("/mcp", async (req, res) => {
   try {

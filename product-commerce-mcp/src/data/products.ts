@@ -90,5 +90,84 @@ export const products: Product[] = [
       camera: "50 MP",
       battery: "5050 mAh"
     }
+  },
+  {
+    id: "P2002",
+    name: "Galaxy S24 Ultra",
+    description: "Flagship smartphone with high-end camera and stylus support.",
+    brand: "Samsung",
+    category: "smartphones",
+    price: 119999,
+    currency: "INR",
+    availability: "in_stock",
+    stock: 10,
+    rating: 4.7,
+    reviewCount: 890,
+    attributes: {
+      display: "6.8 inch Dynamic AMOLED",
+      ram: "12 GB",
+      storage: "512 GB",
+      camera: "200 MP",
+      battery: "5000 mAh"
+    }
+  },
+  {
+    id: "P1004",
+    name: "ThinkPad X1 Carbon",
+    description: "Ultra-portable business laptop with legendary keyboard.",
+    brand: "Lenovo",
+    category: "laptops",
+    price: 139999,
+    currency: "INR",
+    availability: "in_stock",
+    stock: 5,
+    rating: 4.9,
+    reviewCount: 300,
+    attributes: {
+      processor: "Intel Core i7-1355U",
+      ram: "32 GB",
+      storage: "1 TB SSD",
+      display: "14 inch WUXGA",
+      operatingSystem: "Windows 11",
+      weight: "1.12 kg"
+    }
+  },
+  {
+    id: "P1005",
+    name: "Pixel 8a",
+    description: "Budget-friendly smartphone with flagship features.",
+    brand: "Google",
+    category: "smartphones",
+    price: 49999,
+    currency: "INR",
+    availability: "in_stock",
+    stock: 20,
+    rating: 4.5,
+    reviewCount: 500,
+    attributes: {
+      display: "6.1 inch OLED",
+      ram: "8 GB",
+      storage: "128 GB",
+      camera: "64 MP",
+      battery: "4492 mAh"
+    }
+  },
+  {
+    id: "P3001",
+    name: "Sony WH-1000XM5",
+    description: "Industry-leading noise canceling headphones.",
+    brand: "Sony",
+    category: "accessories",
+    price: 29990,
+    currency: "INR",
+    availability: "in_stock",
+    stock: 15,
+    rating: 4.7,
+    reviewCount: 3000,
+    attributes: {
+      type: "Over-ear",
+      batteryLife: "30 hours",
+      connectivity: "Bluetooth 5.2"
+    }
   }
 ];

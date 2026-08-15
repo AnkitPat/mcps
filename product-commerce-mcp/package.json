@@ -13,11 +13,13 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "latest",
+    "better-sqlite3": "^13.0.3",
     "express": "latest",
     "zod": "latest"
   },
   "devDependencies": {
     "@modelcontextprotocol/inspector": "2.1.0",
+    "@types/better-sqlite3": "^9.6.0",
     "@types/express": "latest",
     "@types/node": "latest",
     "tsx": "latest",
