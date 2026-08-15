@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { products } from "../data/products.js";
+import { getProductById, getProductByName } from "../dal.js";
 import { Product } from "../types/product.js";
 
 export const getProductDetailsInputSchema = {
@@ -12,14 +12,13 @@ export function getProductDetails(args: {
   productName?: string;
 }): Product {
   if (args.productId) {
-    const product = products.find(p => p.id === args.productId);
+    const product = getProductById(args.productId);
     if (!product) throw new Error("Product not found");
     return product;
   }
   
   if (args.productName) {
-    const query = args.productName.toLowerCase();
-    const product = products.find(p => p.name.toLowerCase().includes(query));
+    const product = getProductByName(args.productName);
     if (!product) throw new Error("Product not found");
     return product;
   }

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { orders } from "../data/orders.js";
+import { getOrdersByUserId } from "../dal.js";
 import { Order } from "../types/order.js";
 
 export const getOrdersInputSchema = {
@@ -8,5 +8,5 @@ export const getOrdersInputSchema = {
 
 export function getOrders(args: { userId?: string }): Order[] {
   const userId = args.userId ?? "demo-user";
-  return orders.filter(o => o.userId === userId);
+  return getOrdersByUserId(userId);
 }
