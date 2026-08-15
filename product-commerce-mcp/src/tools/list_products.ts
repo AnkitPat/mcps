@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { listProducts as dalListProducts } from "../dal.js";
 
-export const listProductsInputSchema = {
+export const listProductsInputSchema = z.object({
   query: z
     .string()
     .optional()
@@ -29,7 +29,7 @@ export const listProductsInputSchema = {
     .max(50)
     .default(10)
     .describe("Maximum number of products to return")
-};
+});
 
 export function listProducts(args: {
   query?: string;
@@ -40,3 +40,18 @@ export function listProducts(args: {
 }) {
   return dalListProducts(args);
 }
+
+export const list_products_tool = {
+  name: "list_products",
+  schema: {
+    title: "List Products",
+    description: "Search and list products available for purchase.",
+    inputSchema: listProductsInputSchema,
+    annotations: {
+      readOnlyHint: true,
+      openWorldHint: false,
+      destructiveHint: false,
+    },
+  },
+  execute: listProducts,
+};

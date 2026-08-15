@@ -640,7 +640,14 @@ export async function getPodMetrics({ namespace, podName }: { namespace: string;
 export const kubernetes_get_pod_metrics_tool = {
   name: "kubernetes_get_pod_metrics",
   schema: {
+    title: "Get Kubernetes Pod Metrics",
     description: "Get CPU/Memory metrics for a specific pod",
+    annotations: {
+      title: "Get Kubernetes Pod Metrics",
+      readOnlyHint: true,
+      idempotentHint: true,
+      openWorldHint: true,
+    },
     inputSchema: z.object({
       namespace: z.string().describe("The namespace of the pod"),
       podName: z.string().describe("The name of the pod"),

@@ -1,4 +1,29 @@
+import { describe, it, expect, beforeAll } from 'vitest';
 import { getProductDetails } from "./get_product_details.js";
+import { db } from "../db.js";
+
+beforeAll(() => {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS products (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      description TEXT,
+      brand TEXT,
+      category TEXT,
+      price INTEGER NOT NULL,
+      currency TEXT,
+      availability TEXT,
+      stock INTEGER,
+      rating REAL,
+      reviewCount INTEGER,
+      attributes TEXT
+    );
+  `);
+  db.prepare(`
+    INSERT OR REPLACE INTO products (id, name, description, brand, category, price, currency, availability, stock, rating, reviewCount, attributes)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run('p1', 'Laptop', 'Good laptop', 'Brand', 'Electronics', 1000, 'USD', 'in_stock', 10, 4.5, 100, JSON.stringify({ color: 'silver' }));
+});
 
 describe("getProductDetails", () => {
   it("should get product by ID", () => {

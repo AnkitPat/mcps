@@ -1,9 +1,25 @@
 import { z } from "zod";
-import { orders } from "../data/orders.js";
-export const getOrdersInputSchema = {
-    userId: z.string().optional().describe("User ID to fetch orders for. Defaults to 'demo-user'."),
-};
+import { getOrdersByUserId } from "../dal.js";
+export const getOrdersInputSchema = z.object({
+    userId: z.string().describe("User ID to fetch orders for."),
+});
 export function getOrders(args) {
-    const userId = args.userId ?? "demo-user";
-    return orders.filter(o => o.userId === userId);
+    if (!args.userId) {
+        throw new Error("userId is required");
+    }
+    return getOrdersByUserId(args.userId);
 }
+export const get_orders_tool = {
+    name: "get_orders",
+    schema: {
+        title: "Get Orders",
+        description: "Get orders belonging to the current user.",
+        inputSchema: getOrdersInputSchema,
+        annotations: {
+            readOnlyHint: true,
+            openWorldHint: false,
+            destructiveHint: false,
+        },
+    },
+    execute: getOrders,
+};
