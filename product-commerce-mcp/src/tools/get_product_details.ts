@@ -2,10 +2,10 @@ import { z } from "zod";
 import { getProductById, getProductByName } from "../dal.js";
 import { Product } from "../types/product.js";
 
-export const getProductDetailsInputSchema = z.object({
+export const getProductDetailsInputSchema = {
   productId: z.string().optional().describe("Product ID"),
   productName: z.string().optional().describe("Product Name"),
-});
+};
 
 export function getProductDetails(args: {
   productId?: string;
@@ -25,18 +25,3 @@ export function getProductDetails(args: {
   
   throw new Error("Invalid input");
 }
-
-export const get_product_details_tool = {
-  name: "get_product_details",
-  schema: {
-    title: "Get Product Details",
-    description: "Get complete details for a specific product.",
-    inputSchema: getProductDetailsInputSchema,
-    annotations: {
-      readOnlyHint: true,
-      openWorldHint: false,
-      destructiveHint: false,
-    },
-  },
-  execute: getProductDetails,
-};

@@ -3,12 +3,12 @@ import { Product } from "../types/product.js";
 import { ComparisonError } from "../types/compare.js";
 import { getProductDetails } from "./get_product_details.js";
 
-export const compareProductsInputSchema = z.object({
+export const compareProductsInputSchema = {
   products: z
     .array(z.string())
     .min(2, "At least 2 products are required")
     .describe("Array of product IDs or names to compare"),
-});
+};
 
 type LookupResult =
   | { success: true; product: Product }
@@ -65,18 +65,3 @@ export function compareProducts(args: { products: string[] }): string {
 
   return report;
 }
-
-export const compare_products_tool = {
-  name: "compare_products",
-  schema: {
-    title: "Compare Products",
-    description: "Compare multiple products across price, rating and attributes.",
-    inputSchema: compareProductsInputSchema,
-    annotations: {
-      readOnlyHint: true,
-      openWorldHint: false,
-      destructiveHint: false,
-    },
-  },
-  execute: compareProducts,
-};
