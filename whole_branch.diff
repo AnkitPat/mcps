@@ -1,0 +1,144 @@
+diff --git a/product-commerce-mcp/src/dal.ts b/product-commerce-mcp/src/dal.ts
+index d71c5a3..e80be4d 100644
+--- a/product-commerce-mcp/src/dal.ts
++++ b/product-commerce-mcp/src/dal.ts
+@@ -1,3 +1,4 @@
++import crypto from "node:crypto";
+ import { db } from "./db.js";
+ import { Product } from "./types/product.js";
+ import { Order } from "./types/order.js";
+@@ -68,3 +69,18 @@ export function getOrdersByUserId(userId: string): Order[] {
+     };
+   });
+ }
++
++export function createOrder(order: Omit<Order, 'id' | 'createdAt'>): Order {
++  const orderId = crypto.randomUUID();
++  db.prepare(`INSERT INTO orders (id, userId, total, currency, status, shippingAddress) VALUES (?, ?, ?, ?, ?, ?)`).run(
++    orderId, order.userId, order.total, order.currency, order.status, JSON.stringify(order.shippingAddress)
++  );
++
++  for (const item of order.items) {
++    db.prepare(`INSERT INTO order_items (orderId, productId, productName, quantity, unitPrice) VALUES (?, ?, ?, ?, ?)`).run(
++      orderId, item.productId, item.productName, item.quantity, item.unitPrice
++    );
++  }
++
++  return { ...order, id: orderId, createdAt: new Date().toISOString() };
++}
+diff --git a/product-commerce-mcp/src/order-item.test.ts b/product-commerce-mcp/src/order-item.test.ts
+new file mode 100644
+index 0000000..35d76e5
+--- /dev/null
++++ b/product-commerce-mcp/src/order-item.test.ts
+@@ -0,0 +1,10 @@
++import { it, expect } from 'vitest';
++import { OrderItem } from './types/order.js';
++
++it('should allow optional productId and productName', () => {
++  const item: OrderItem = {
++    quantity: 1,
++    unitPrice: 10
++  };
++  expect(item.quantity).toBe(1);
++});
+diff --git a/product-commerce-mcp/src/tools/index.ts b/product-commerce-mcp/src/tools/index.ts
+index f635f0f..4c741f0 100644
+--- a/product-commerce-mcp/src/tools/index.ts
++++ b/product-commerce-mcp/src/tools/index.ts
+@@ -3,12 +3,14 @@ import { list_products_tool } from "./list_products.js";
+ import { get_product_details_tool } from "./get_product_details.js";
+ import { compare_products_tool } from "./compare_products.js";
+ import { get_orders_tool } from "./get_orders.js";
++import { submit_order_tool } from "./submit_order.js";
+ 
+ const allTools = [
+   list_products_tool,
+   get_product_details_tool,
+   compare_products_tool,
+   get_orders_tool,
++  submit_order_tool,
+ ];
+ 
+ export function registerTools(server: McpServer) {
+diff --git a/product-commerce-mcp/src/tools/submit_order.ts b/product-commerce-mcp/src/tools/submit_order.ts
+new file mode 100644
+index 0000000..a3a0ffd
+--- /dev/null
++++ b/product-commerce-mcp/src/tools/submit_order.ts
+@@ -0,0 +1,60 @@
++import { z } from "zod";
++import { createOrder, getProductById, getProductByName } from "../dal.js";
++
++export const submitOrderInputSchema = z.object({
++  userId: z.string().describe("User ID"),
++  productId: z.string().optional().describe("Product ID"),
++  productName: z.string().optional().describe("Product Name"),
++  quantity: z.number().int().min(1).default(1).describe("Quantity"),
++  shippingAddress: z.object({
++    name: z.string(),
++    addressLine1: z.string(),
++    city: z.string(),
++    state: z.string(),
++    postalCode: z.string(),
++    country: z.string(),
++  }),
++}).refine(data => data.productId || data.productName, {
++  message: "Either productId or productName must be provided",
++  path: ["productId"]
++});
++
++export async function submitOrder(args: z.infer<typeof submitOrderInputSchema>) {
++  let product;
++  if (args.productId) {
++    product = getProductById(args.productId);
++  } else if (args.productName) {
++    product = getProductByName(args.productName);
++  }
++  
++  if (!product) throw new Error("Product not found");
++  
++  return createOrder({
++    userId: args.userId,
++    items: [{
++      productId: product.id,
++      productName: product.name,
++      quantity: args.quantity,
++      unitPrice: product.price
++    }],
++    total: product.price * args.quantity,
++    currency: product.currency,
++    status: "pending",
++    shippingAddress: args.shippingAddress
++  });
++}
++
++export const submit_order_tool = {
++  name: "submit_order",
++  schema: {
++    title: "Submit Order",
++    description: "Submit a new order for a single product.",
++    inputSchema: submitOrderInputSchema,
++    annotations: {
++      readOnlyHint: false,
++      openWorldHint: false,
++      destructiveHint: true,
++    },
++  },
++  execute: submitOrder,
++};
+diff --git a/product-commerce-mcp/src/types/order.ts b/product-commerce-mcp/src/types/order.ts
+index b7e3ab7..137b631 100644
+--- a/product-commerce-mcp/src/types/order.ts
++++ b/product-commerce-mcp/src/types/order.ts
+@@ -6,8 +6,8 @@ export type OrderStatus =
+   | "cancelled";
+ 
+ export interface OrderItem {
+-  productId: string;
+-  productName: string;
++  productId?: string;
++  productName?: string;
+   quantity: number;
+   unitPrice: number;
+ }

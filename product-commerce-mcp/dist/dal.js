@@ -1,3 +1,4 @@
+import crypto from "node:crypto";
 import { db } from "./db.js";
 export function getProductById(id) {
     const row = db.prepare("SELECT * FROM products WHERE id = ?").get(id);
@@ -50,4 +51,12 @@ export function getOrdersByUserId(userId) {
             }))
         };
     });
+}
+export function createOrder(order) {
+    const orderId = crypto.randomUUID();
+    db.prepare(`INSERT INTO orders (id, userId, total, currency, status, shippingAddress) VALUES (?, ?, ?, ?, ?, ?)`).run(orderId, order.userId, order.total, order.currency, order.status, JSON.stringify(order.shippingAddress));
+    for (const item of order.items) {
+        db.prepare(`INSERT INTO order_items (orderId, productId, productName, quantity, unitPrice) VALUES (?, ?, ?, ?, ?)`).run(orderId, item.productId, item.productName, item.quantity, item.unitPrice);
+    }
+    return { ...order, id: orderId, createdAt: new Date().toISOString() };
 }

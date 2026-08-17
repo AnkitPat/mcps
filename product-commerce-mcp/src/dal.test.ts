@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll } from 'vitest';
-import { getProductById, getProductByName, listProducts, getOrdersByUserId } from './dal.js';
+import { getProductById, getProductByName, listProducts, getOrdersByUserId, createOrder } from './dal.js';
 import { db } from './db.js';
 
 beforeAll(() => {
@@ -71,5 +71,26 @@ describe('DAL', () => {
     expect(orders.length).toBe(1);
     expect(orders[0].items.length).toBe(1);
     expect(typeof orders[0].shippingAddress).toBe('object');
+  });
+
+  it("createOrder should create a new order", () => {
+    const newOrder = {
+      userId: "user1",
+      items: [{ productId: "p1", productName: "Product 1", quantity: 1, unitPrice: 10 }],
+      total: 10,
+      currency: "USD",
+      status: "pending" as const,
+      shippingAddress: {
+        name: "John Doe",
+        addressLine1: "123 Main St",
+        city: "Anytown",
+        state: "CA",
+        postalCode: "12345",
+        country: "USA"
+      }
+    };
+    const order = createOrder(newOrder);
+    expect(order.id).toBeDefined();
+    expect(order.userId).toBe("user1");
   });
 });

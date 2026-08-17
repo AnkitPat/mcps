@@ -4,7 +4,7 @@
   "app_info": {
     "display_name": "Product Commerce",
     "subtitle": "Find and compare products",
-    "description": "Product Commerce helps users search a product catalog, view complete product details, compare products, and place orders.",
+    "description": "Product Commerce helps users search a product catalog, view complete product details, and compare products by price, rating, and attributes.",
     "category": "SHOPPING"
   },
   "tools": {
@@ -40,30 +40,6 @@
       },
       "justifications": {
         "read_only_justification": "Looks up catalog products and produces a comparison without changing data.",
-        "open_world_justification": "Does not publish content or modify any external or third-party system.",
-        "destructive_justification": "Does not delete, overwrite, revoke, or irreversibly change data."
-      }
-    },
-    "submit_order": {
-      "annotations": {
-        "readOnlyHint": false,
-        "openWorldHint": false,
-        "destructiveHint": true
-      },
-      "justifications": {
-        "read_only_justification": "Not applicable; this tool creates new order data.",
-        "open_world_justification": "Does not publish content or modify any external or third-party system.",
-        "destructive_justification": "Creates new order records in the local database."
-      }
-    },
-    "get_orders": {
-      "annotations": {
-        "readOnlyHint": true,
-        "openWorldHint": false,
-        "destructiveHint": false
-      },
-      "justifications": {
-        "read_only_justification": "Retrieves the order history for a specific user without changing any data.",
         "open_world_justification": "Does not publish content or modify any external or third-party system.",
         "destructive_justification": "Does not delete, overwrite, revoke, or irreversibly change data."
       }
@@ -109,33 +85,17 @@
       "tools_triggered": "compare_products",
       "expected_output": "Returns a side-by-side comparison of the requested products' brand, price, and rating.",
       "expected_output_url": null
-    },
-    {
-      "description": "Place an order for a product.",
-      "user_prompt": "Buy the MacBook Air M3 for user u1 and ship it to 123 Main St, Anytown, CA, 12345, USA.",
-      "file_attachment_urls": null,
-      "tools_triggered": "submit_order",
-      "expected_output": "Returns confirmation of the order with an order ID.",
-      "expected_output_url": null
-    },
-    {
-      "description": "Fetch order history for a user.",
-      "user_prompt": "Show me the orders for user u1.",
-      "file_attachment_urls": null,
-      "tools_triggered": "get_orders",
-      "expected_output": "Returns a list of orders associated with user u1.",
-      "expected_output_url": null
-    },
-    {
-      "description": "Place an order using product ID.",
-      "user_prompt": "Buy product p1 for user u1 and ship it to 456 Elm St, Anytown, CA, 12345, USA.",
-      "file_attachment_urls": null,
-      "tools_triggered": "submit_order",
-      "expected_output": "Returns confirmation of the order with an order ID.",
-      "expected_output_url": null
     }
   ],
   "negative_test_cases": [
+    {
+      "description": "Do not trigger for order placement.",
+      "user_prompt": "Buy the MacBook Air M3 and ship it to my home.",
+      "file_attachment_urls": null,
+      "tools_triggered": null,
+      "expected_output": "The app should not be invoked because it cannot place orders or collect shipping details.",
+      "expected_output_url": null
+    },
     {
       "description": "Do not trigger for order tracking.",
       "user_prompt": "Where is my order ORD-10001?",
