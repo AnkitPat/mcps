@@ -13,7 +13,7 @@ export const get_orders_tool = {
     name: "get_orders",
     schema: {
         title: "Get Orders",
-        description: "Get orders belonging to the current user.",
+        description: "Get orders for a specific user ID. Use this whenever the user asks to get orders for a user.",
         inputSchema: getOrdersInputSchema,
         annotations: {
             readOnlyHint: true,

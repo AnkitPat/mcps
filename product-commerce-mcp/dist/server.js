@@ -2,6 +2,7 @@ import express from "express";
 import { randomUUID } from "node:crypto";
 import path from "path";
 import { fileURLToPath } from "url";
+import * as fs from "fs";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
@@ -17,10 +18,21 @@ app.get("/.well-known/openai-apps-challenge", (_req, res) => res.send("PVZEeBRVN
 app.use(express.json());
 const PORT = Number(process.env.PORT ?? 3000);
 const transports = {};
+const iconPath = path.resolve("./assets/logo.png");
+const iconBuffer = fs.readFileSync(iconPath);
+const base64Image = iconBuffer.toString("base64");
+const dataUri = `data:image/png;base64,${base64Image}`;
 function createServer() {
     const server = new McpServer({
         name: "product-commerce-mcp",
-        version: "1.0.0"
+        version: "1.0.0",
+        icons: [
+            {
+                src: dataUri,
+                mimeType: "image/png",
+                sizes: ["64x64"],
+            },
+        ],
     });
     registerTools(server);
     return server;
