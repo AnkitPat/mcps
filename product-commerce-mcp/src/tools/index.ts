@@ -3,12 +3,14 @@ import { list_products_tool } from "./list_products.js";
 import { get_product_details_tool } from "./get_product_details.js";
 import { compare_products_tool } from "./compare_products.js";
 import { get_orders_tool } from "./get_orders.js";
+import { submit_order_tool } from "./submit_order.js";
 
 const allTools = [
   list_products_tool,
   get_product_details_tool,
   compare_products_tool,
   get_orders_tool,
+  submit_order_tool,
 ];
 
 export function registerTools(server: McpServer) {
