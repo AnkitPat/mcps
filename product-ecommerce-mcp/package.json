@@ -1,0 +1,29 @@
+{
+  "name": "product-commerce-mcp",
+  "version": "1.0.0",
+  "description": "A Streamable HTTP MCP server for product discovery and commerce",
+  "type": "module",
+  "scripts": {
+    "test": "vitest",
+    "dev": "tsx watch src/server.ts",
+    "start": "tsx src/server.ts",
+    "client": "tsx src/client.ts",
+    "build": "tsc",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "latest",
+    "better-sqlite3": "^13.0.3",
+    "express": "latest",
+    "zod": "latest"
+  },
+  "devDependencies": {
+    "@modelcontextprotocol/inspector": "2.1.0",
+    "@types/better-sqlite3": "^9.6.0",
+    "@types/express": "latest",
+    "@types/node": "latest",
+    "tsx": "latest",
+    "typescript": "latest",
+    "vitest": "^4.1.10"
+  }
+}
