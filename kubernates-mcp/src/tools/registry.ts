@@ -4,7 +4,8 @@ import {
     kubernetes_get_pod_logs_tool,
     kubernetes_count_pods_tool,
     kubernetes_get_pods_health_tool,
-    kubernetes_get_pod_metrics_tool
+    kubernetes_get_pod_metrics_tool,
+    kubernetes_get_events_tool
 } from "./kubernetesTools.js";
 
 export const toolRegistry = [
@@ -13,5 +14,6 @@ export const toolRegistry = [
     kubernetes_get_pod_logs_tool,
     kubernetes_count_pods_tool,
     kubernetes_get_pods_health_tool,
-    kubernetes_get_pod_metrics_tool
+    kubernetes_get_pod_metrics_tool,
+    kubernetes_get_events_tool
 ];
