@@ -1,6 +1,11 @@
 ## First part for handling MCP
 
 
+const transports: Record<
+  string,
+  StreamableHTTPServerTransport
+> = {};
+
 app.post("/mcp", async (req, res) => {
   try {
     const sessionId =

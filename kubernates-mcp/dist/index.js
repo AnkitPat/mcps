@@ -6,7 +6,6 @@ import crypto from "crypto";
 import { randomUUID } from "node:crypto";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { isInitializeRequest } from "@modelcontextprotocol/sdk/types.js";
-import { createAuthenticationMiddleware, getAuthConfig, protectedResourceMetadata, } from "./auth.js";
 const app = express();
 app.use(express.json({
     type: [
@@ -15,8 +14,6 @@ app.use(express.json({
     ],
     limit: "1mb",
 }));
-const authConfig = getAuthConfig();
-const authenticate = createAuthenticationMiddleware(authConfig);
 const streamableTransports = {};
 const transportMap = new Map();
 function createServer() {
@@ -47,7 +44,7 @@ console.log("MCP Server Started");
 console.log("Registered tools:");
 toolRegistry.forEach(tool => console.log(`- ${tool.name}`));
 console.log(`Total tools registered: ${toolRegistry.length}`);
-app.get("/sse", authenticate, async (req, res) => {
+app.get("/sse", async (req, res) => {
     const sessionId = crypto.randomUUID();
     console.log(`[${sessionId}] SSE connection request. tools/list requested.`);
     console.log(`Returning ${toolRegistry.length} tools.`);
@@ -68,7 +65,7 @@ app.get("/sse", authenticate, async (req, res) => {
         transportMap.delete(sessionId);
     });
 });
-app.post("/messages/:sessionId", authenticate, async (req, res) => {
+app.post("/messages/:sessionId", async (req, res) => {
     const sessionId = Array.isArray(req.params.sessionId) ? req.params.sessionId[0] : req.params.sessionId;
     const transport = transportMap.get(sessionId);
     if (!transport) {
@@ -83,19 +80,12 @@ app.post("/messages/:sessionId", authenticate, async (req, res) => {
         res.status(500).send("Internal server error");
     }
 });
-const resourceMetadata = protectedResourceMetadata(authConfig);
-if (resourceMetadata) {
-    app.get("/.well-known/oauth-protected-resource", (_req, res) => {
-        res.json(resourceMetadata);
-    });
-}
 // app.use((req, res) => {
 //   console.log(`Unhandled request: ${req.method} ${req.originalUrl}`);
 //   res.status(404).json({
 //     message: 'Route not found'
 //   });
 // });
-app.use("/mcp", authenticate);
 app.post("/mcp", async (req, res) => {
     const sessionId = req.headers["mcp-session-id"];
     let transport;

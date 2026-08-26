@@ -43,6 +43,30 @@
         "open_world_justification": "Does not publish content or modify any external or third-party system.",
         "destructive_justification": "Does not delete, overwrite, revoke, or irreversibly change data."
       }
+    },
+    "submit_order": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": false,
+        "destructiveHint": true
+      },
+      "justifications": {
+        "read_only_justification": "Not applicable; this tool creates new order data.",
+        "open_world_justification": "Does not publish content or modify any external or third-party system.",
+        "destructive_justification": "Creates new order records in the local database."
+      }
+    },
+    "get_orders": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Retrieves the order history for a specific user without changing any data.",
+        "open_world_justification": "Does not publish content or modify any external or third-party system.",
+        "destructive_justification": "Does not delete, overwrite, revoke, or irreversibly change data."
+      }
     }
   },
   "test_cases": [

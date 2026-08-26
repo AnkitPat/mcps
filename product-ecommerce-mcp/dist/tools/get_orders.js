@@ -1,0 +1,25 @@
+import { z } from "zod";
+import { getOrdersByUserId } from "../dal.js";
+export const getOrdersInputSchema = z.object({
+    userId: z.string().describe("User ID to fetch orders for."),
+});
+export function getOrders(args) {
+    if (!args.userId) {
+        throw new Error("userId is required");
+    }
+    return getOrdersByUserId(args.userId);
+}
+export const get_orders_tool = {
+    name: "get_orders",
+    schema: {
+        title: "Get Orders",
+        description: "Get orders for a specific user ID. Use this whenever the user asks to get orders for a user.",
+        inputSchema: getOrdersInputSchema,
+        annotations: {
+            readOnlyHint: true,
+            openWorldHint: false,
+            destructiveHint: false,
+        },
+    },
+    execute: getOrders,
+};
