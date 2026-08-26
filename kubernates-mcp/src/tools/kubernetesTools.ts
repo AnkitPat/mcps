@@ -728,3 +728,138 @@ A JSON-formatted list of events.
 
   execute: getEvents,
 };
+
+export async function describeDeployment({
+  deploymentName,
+  namespace,
+}: {
+  deploymentName: string;
+  namespace?: string;
+}) {
+  try {
+    const { apps } = getK8sClients();
+
+    let targetNamespace = namespace;
+
+    // 1. Discover namespace if not provided
+    if (!targetNamespace) {
+      const res = await apps.listDeploymentForAllNamespaces({
+        fieldSelector: `metadata.name=${deploymentName}`,
+      });
+
+      const deployments = res.items || [];
+      if (deployments.length === 0) {
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: JSON.stringify({
+                error: `Deployment '${deploymentName}' not found in any namespace.`,
+              }),
+            },
+          ],
+        };
+      }
+
+      if (deployments.length > 1) {
+        const foundNamespaces = deployments.map(d => d.metadata?.namespace).join(", ");
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: JSON.stringify({
+                error: `Multiple deployments found with name '${deploymentName}' in namespaces: ${foundNamespaces}. Please specify a namespace.`,
+              }),
+            },
+          ],
+        };
+      }
+
+      targetNamespace = deployments[0].metadata?.namespace;
+    }
+
+    if (!targetNamespace) {
+      return {
+        content: [
+          {
+            type: "text" as const,
+            text: JSON.stringify({
+              error: `Could not determine namespace for deployment '${deploymentName}'.`,
+            }),
+          },
+        ],
+      };
+    }
+
+    // 2. Retrieve deployment details
+    const res = await apps.readNamespacedDeployment({
+      name: deploymentName,
+      namespace: targetNamespace,
+    });
+
+    return {
+      content: [
+        {
+          type: "text" as const,
+          text: JSON.stringify(res, null, 2),
+        },
+      ],
+    };
+  } catch (e: any) {
+    return {
+      isError: true,
+      content: [
+        {
+          type: "text" as const,
+          text: JSON.stringify({
+            error: e.message,
+          }),
+        },
+      ],
+    };
+  }
+}
+
+export const kubernetes_describe_deployment_tool = {
+  name: "kubernetes_describe_deployment",
+
+  schema: {
+    title: "Describe Kubernetes Deployment",
+
+    description: `
+Retrieves full details for a specific Kubernetes deployment.
+
+Input:
+- deploymentName: The name of the deployment to describe.
+- namespace: Kubernetes namespace (optional).
+
+Output:
+Detailed JSON object containing deployment spec, status, etc.
+
+Examples:
+- Describe deployment "web-server": kubernetes_describe_deployment({ deploymentName: "web-server" })
+- Describe deployment in specific namespace: kubernetes_describe_deployment({ deploymentName: "web-server", namespace: "prod" })
+`,
+
+    annotations: {
+      title: "Describe Kubernetes Deployment",
+      readOnlyHint: true,
+      idempotentHint: true,
+      openWorldHint: true,
+    },
+
+    inputSchema: z.object({
+      deploymentName: z
+        .string()
+        .describe("The name of the deployment to describe."),
+      namespace: z
+        .string()
+        .optional()
+        .describe(
+          "Optional Kubernetes namespace. If omitted, all namespaces will be searched."
+        ),
+    }),
+  },
+
+  execute: describeDeployment,
+};
