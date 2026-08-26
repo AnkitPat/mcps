@@ -655,3 +655,76 @@ export const kubernetes_get_pod_metrics_tool = {
   },
   execute: getPodMetrics,
 };
+
+export async function getEvents({
+  namespace,
+}: {
+  namespace?: string;
+}) {
+  try {
+    const { core } = getK8sClients();
+
+    const res = namespace
+      ? await core.listNamespacedEvent({ namespace })
+      : await core.listEventForAllNamespaces();
+
+    const events = res.body.items || [];
+
+    return {
+      content: [
+        {
+          type: "text" as const,
+          text: JSON.stringify(events, null, 2),
+        },
+      ],
+    };
+  } catch (e: any) {
+    return {
+      isError: true,
+      content: [
+        {
+          type: "text" as const,
+          text: JSON.stringify({
+            error: e.message,
+          }),
+        },
+      ],
+    };
+  }
+}
+
+export const kubernetes_get_events_tool = {
+  name: "kubernetes_get_events",
+
+  schema: {
+    title: "Get Kubernetes Events",
+
+    description: `
+Returns a list of Kubernetes events in a namespace or across the cluster.
+
+Input:
+- namespace: Optional Kubernetes namespace. If omitted, all namespaces are listed.
+
+Output:
+A JSON-formatted list of events.
+`,
+
+    annotations: {
+      title: "Get Kubernetes Events",
+      readOnlyHint: true,
+      idempotentHint: true,
+      openWorldHint: true,
+    },
+
+    inputSchema: z.object({
+      namespace: z
+        .string()
+        .optional()
+        .describe(
+          "Optional Kubernetes namespace. If omitted, all namespaces are listed."
+        ),
+    }),
+  },
+
+  execute: getEvents,
+};
