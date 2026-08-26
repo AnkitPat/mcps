@@ -109,30 +109,6 @@
       "tools_triggered": "compare_products",
       "expected_output": "Returns a side-by-side comparison of the requested products' brand, price, and rating.",
       "expected_output_url": null
-    },
-    {
-      "description": "Place an order for a product.",
-      "user_prompt": "Buy the MacBook Air M3 for user u1 and ship it to 123 Main St, Anytown, CA, 12345, USA.",
-      "file_attachment_urls": null,
-      "tools_triggered": "submit_order",
-      "expected_output": "Returns confirmation of the order with an order ID.",
-      "expected_output_url": null
-    },
-    {
-      "description": "Fetch order history for a user.",
-      "user_prompt": "Show me the orders for user u1.",
-      "file_attachment_urls": null,
-      "tools_triggered": "get_orders",
-      "expected_output": "Returns a list of orders associated with user u1.",
-      "expected_output_url": null
-    },
-    {
-      "description": "Place an order using product ID.",
-      "user_prompt": "Buy product p1 for user u1 and ship it to 456 Elm St, Anytown, CA, 12345, USA.",
-      "file_attachment_urls": null,
-      "tools_triggered": "submit_order",
-      "expected_output": "Returns confirmation of the order with an order ID.",
-      "expected_output_url": null
     }
   ],
   "negative_test_cases": [
@@ -150,6 +126,14 @@
       "file_attachment_urls": null,
       "tools_triggered": null,
       "expected_output": "The app should not be invoked because calendar management is outside its supported workflows.",
+      "expected_output_url": null
+    },
+    {
+      "description": "Do not trigger for system configuration requests.",
+      "user_prompt": "Change the theme to dark mode.",
+      "file_attachment_urls": null,
+      "tools_triggered": null,
+      "expected_output": "The app should not be invoked because it does not manage application settings or themes.",
       "expected_output_url": null
     }
   ]

@@ -1,53 +1,29 @@
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp";
+import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp";
+import { isInitializeRequest } from "@modelcontextprotocol/sdk/types";
+import { randomUUID } from "crypto";
 import express from "express";
-import { randomUUID } from "node:crypto";
 import path from "path";
 import { fileURLToPath } from "url";
-import * as fs from "fs";
+import { registerTools } from "./tools/index.js";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
-import { isInitializeRequest } from "@modelcontextprotocol/sdk/types.js";
-import { registerTools } from "./tools/index.js";
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 const app = express();
+app.use(express.json());
+const transports = {};
+function createServer() {
+    const server = new McpServer({
+        name: "product-commerce-mcp",
+        version: "1.0.0",
+    });
+    registerTools(server);
+    return server;
+}
 app.use(express.static("public"));
 app.get("/support", (_req, res) => res.sendFile("support.html", { root: "public" }));
 app.get("/privacy", (_req, res) => res.sendFile("privacy.html", { root: "public" }));
 app.get("/terms", (_req, res) => res.sendFile("terms.html", { root: "public" }));
 app.get("/.well-known/openai-apps-challenge", (_req, res) => res.send("PVZEeBRVNjJCzfqf1DtVgYI9up6GvEyh3egLW34lKBk"));
-app.use(express.json());
-const PORT = Number(process.env.PORT ?? 3000);
-const transports = {};
-const iconPath = path.resolve("./assets/logo.png");
-const iconBuffer = fs.readFileSync(iconPath);
-const base64Image = iconBuffer.toString("base64");
-const dataUri = `data:image/png;base64,${base64Image}`;
-function createServer() {
-    const server = new McpServer({
-        name: "product-commerce-mcp",
-        version: "1.0.0",
-        icons: [
-            {
-                src: dataUri,
-                mimeType: "image/png",
-                sizes: ["64x64"],
-            },
-        ],
-    });
-    registerTools(server);
-    return server;
-}
-app.post("/update-challenge", express.text(), (req, res) => {
-    const token = req.body;
-    if (!token) {
-        return res.status(400).send("Token is required");
-    }
-    const fs = require("fs");
-    const path = require("path");
-    const filePath = path.join(__dirname, "../public/.well-known/openai-apps-challenge");
-    fs.writeFileSync(filePath, token);
-    res.send("Challenge token updated");
-});
 app.post("/mcp", async (req, res) => {
     try {
         const sessionId = req.headers["mcp-session-id"];
@@ -104,6 +80,18 @@ app.delete("/mcp", async (req, res) => {
         return;
     }
     await transports[sessionId].handleRequest(req, res);
+});
+const PORT = Number(process.env.PORT ?? 3000);
+app.post("/update-challenge", express.text(), (req, res) => {
+    const token = req.body;
+    if (!token) {
+        return res.status(400).send("Token is required");
+    }
+    const fs = require("fs");
+    const path = require("path");
+    const filePath = path.join(__dirname, "../public/.well-known/openai-apps-challenge");
+    fs.writeFileSync(filePath, token);
+    res.send("Challenge token updated");
 });
 app.get("/health", (_req, res) => {
     res.json({
