@@ -863,3 +863,92 @@ Examples:
 
   execute: describeDeployment,
 };
+
+
+export async function listServices({ namespace }: { namespace?: string }) {
+  try {
+    const { core } = getK8sClients();
+    const res = namespace
+      ? await core.listNamespacedService({ namespace })
+      : await core.listServiceForAllNamespaces();
+    return {
+      content: [{ type: "text" as const, text: JSON.stringify(res.body.items, null, 2) }],
+    };
+  } catch (e: any) {
+    return {
+      isError: true,
+      content: [{ type: "text" as const, text: `Error fetching services: ${e.message}` }],
+    };
+  }
+}
+
+export const kubernetes_list_services_tool = {
+  name: "kubernetes_list_services",
+  schema: {
+    title: "List Kubernetes Services",
+    description: "Returns a list of Kubernetes services.",
+    inputSchema: z.object({
+      namespace: z.string().optional().describe("Optional namespace."),
+    }),
+  },
+  execute: listServices,
+};
+
+export async function listIngress({ namespace }: { namespace?: string }) {
+  try {
+    const { custom } = getK8sClients();
+    // Assuming Networking V1 Ingress
+    const res = namespace
+      ? await custom.listNamespacedCustomObject("networking.k8s.io", "v1", namespace, "ingresses")
+      : await custom.listClusterCustomObject("networking.k8s.io", "v1", "ingresses");
+    return {
+      content: [{ type: "text" as const, text: JSON.stringify((res.body as any).items, null, 2) }],
+    };
+  } catch (e: any) {
+    return {
+      isError: true,
+      content: [{ type: "text" as const, text: `Error fetching ingress: ${e.message}` }],
+    };
+  }
+}
+
+export const kubernetes_list_ingress_tool = {
+  name: "kubernetes_list_ingress",
+  schema: {
+    title: "List Kubernetes Ingress",
+    description: "Returns a list of Kubernetes Ingress resources.",
+    inputSchema: z.object({
+      namespace: z.string().optional().describe("Optional namespace."),
+    }),
+  },
+  execute: listIngress,
+};
+
+export async function getHPA({ namespace }: { namespace?: string }) {
+  try {
+    const { custom } = getK8sClients();
+    const res = namespace
+      ? await custom.listNamespacedCustomObject("autoscaling", "v2", namespace, "horizontalpodautoscalers")
+      : await custom.listClusterCustomObject("autoscaling", "v2", "horizontalpodautoscalers");
+    return {
+      content: [{ type: "text" as const, text: JSON.stringify((res.body as any).items, null, 2) }],
+    };
+  } catch (e: any) {
+    return {
+      isError: true,
+      content: [{ type: "text" as const, text: `Error fetching HPA: ${e.message}` }],
+    };
+  }
+}
+
+export const kubernetes_get_hpa_tool = {
+  name: "kubernetes_get_hpa",
+  schema: {
+    title: "Get Kubernetes HPA",
+    description: "Returns a list of Horizontal Pod Autoscalers.",
+    inputSchema: z.object({
+      namespace: z.string().optional().describe("Optional namespace."),
+    }),
+  },
+  execute: getHPA,
+};
