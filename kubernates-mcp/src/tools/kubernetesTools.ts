@@ -668,7 +668,9 @@ export async function getEvents({
       ? await core.listNamespacedEvent({ namespace })
       : await core.listEventForAllNamespaces();
 
-    const events = res.body.items || [];
+    console.log("DEBUG: res structure:", JSON.stringify(res, null, 2));
+
+    const events = (res as any).body?.items || (res as any).items || [];
 
     return {
       content: [
@@ -871,8 +873,10 @@ export async function listServices({ namespace }: { namespace?: string }) {
     const res = namespace
       ? await core.listNamespacedService({ namespace })
       : await core.listServiceForAllNamespaces();
+    
+    const items = (res as any).body?.items || (res as any).items || [];
     return {
-      content: [{ type: "text" as const, text: JSON.stringify(res.body.items, null, 2) }],
+      content: [{ type: "text" as const, text: JSON.stringify(items, null, 2) }],
     };
   } catch (e: any) {
     return {
@@ -901,8 +905,10 @@ export async function listIngress({ namespace }: { namespace?: string }) {
     const res = namespace
       ? await custom.listNamespacedCustomObject("networking.k8s.io", "v1", namespace, "ingresses")
       : await custom.listClusterCustomObject("networking.k8s.io", "v1", "ingresses");
+    
+    const items = (res as any).body?.items || (res as any).items || [];
     return {
-      content: [{ type: "text" as const, text: JSON.stringify((res.body as any).items, null, 2) }],
+      content: [{ type: "text" as const, text: JSON.stringify(items, null, 2) }],
     };
   } catch (e: any) {
     return {
@@ -930,8 +936,10 @@ export async function getHPA({ namespace }: { namespace?: string }) {
     const res = namespace
       ? await custom.listNamespacedCustomObject("autoscaling", "v2", namespace, "horizontalpodautoscalers")
       : await custom.listClusterCustomObject("autoscaling", "v2", "horizontalpodautoscalers");
+    
+    const items = (res as any).body?.items || (res as any).items || [];
     return {
-      content: [{ type: "text" as const, text: JSON.stringify((res.body as any).items, null, 2) }],
+      content: [{ type: "text" as const, text: JSON.stringify(items, null, 2) }],
     };
   } catch (e: any) {
     return {
