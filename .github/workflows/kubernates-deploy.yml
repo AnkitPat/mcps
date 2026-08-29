@@ -35,5 +35,5 @@ jobs:
 
       - name: Build and Push
         run: |
-          docker build -t $LOCATION-docker.pkg.dev/$PROJECT_ID/$REPO_NAME/$IMAGE_NAME:$GITHUB_SHA .
+          docker build -t $LOCATION-docker.pkg.dev/$PROJECT_ID/$REPO_NAME/$IMAGE_NAME:$GITHUB_SHA kubernates-mcp/
           docker push $LOCATION-docker.pkg.dev/$PROJECT_ID/$REPO_NAME/$IMAGE_NAME:$GITHUB_SHA
