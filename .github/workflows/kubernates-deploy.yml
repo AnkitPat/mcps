@@ -40,3 +40,15 @@ jobs:
           docker push $IMAGE_TAG
           docker tag $IMAGE_TAG $LOCATION-docker.pkg.dev/$PROJECT_ID/$REPO_NAME/$IMAGE_NAME:latest
           docker push $LOCATION-docker.pkg.dev/$PROJECT_ID/$REPO_NAME/$IMAGE_NAME:latest
+
+      - name: Deploy to Cloud Run
+        uses: google-github-actions/deploy-cloudrun@v2
+        with:
+          service: 'kubernetes-mcp-server'
+          region: 'asia-south1'
+          image: '$LOCATION-docker.pkg.dev/$PROJECT_ID/$REPO_NAME/$IMAGE_NAME:latest'
+          env_vars: |
+            K8S_API_TOKEN=${{ secrets.K8S_API_TOKEN }}
+            K8S_API_SERVER=${{ secrets.K8S_API_SERVER }}
+            K8S_API_CA=${{ secrets.K8S_API_CA }}
+            DASHBOARD_API_URL=${{ secrets.DASHBOARD_API_URL }}
