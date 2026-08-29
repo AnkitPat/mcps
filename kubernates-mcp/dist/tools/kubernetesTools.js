@@ -531,3 +531,283 @@ export const kubernetes_get_pod_metrics_tool = {
     },
     execute: getPodMetrics,
 };
+export async function getEvents({ namespace, }) {
+    try {
+        const { core } = getK8sClients();
+        const res = namespace
+            ? await core.listNamespacedEvent({ namespace })
+            : await core.listEventForAllNamespaces();
+        console.log("DEBUG: res structure:", JSON.stringify(res, null, 2));
+        const events = res.body?.items || res.items || [];
+        return {
+            content: [
+                {
+                    type: "text",
+                    text: JSON.stringify(events, null, 2),
+                },
+            ],
+        };
+    }
+    catch (e) {
+        return {
+            isError: true,
+            content: [
+                {
+                    type: "text",
+                    text: JSON.stringify({
+                        error: e.message,
+                    }),
+                },
+            ],
+        };
+    }
+}
+export const kubernetes_get_events_tool = {
+    name: "kubernetes_get_events",
+    schema: {
+        title: "Get Kubernetes Events",
+        description: `
+Returns a list of Kubernetes events in a namespace or across the cluster.
+
+Input:
+- namespace: Optional Kubernetes namespace. If omitted, all namespaces are listed.
+
+Output:
+A JSON-formatted list of events.
+`,
+        annotations: {
+            title: "Get Kubernetes Events",
+            readOnlyHint: true,
+            idempotentHint: true,
+            openWorldHint: true,
+        },
+        inputSchema: z.object({
+            namespace: z
+                .string()
+                .optional()
+                .describe("Optional Kubernetes namespace. If omitted, all namespaces are listed."),
+        }),
+    },
+    execute: getEvents,
+};
+export async function describeDeployment({ deploymentName, namespace, }) {
+    try {
+        const { apps } = getK8sClients();
+        let targetNamespace = namespace;
+        // 1. Discover namespace if not provided
+        if (!targetNamespace) {
+            const res = await apps.listDeploymentForAllNamespaces({
+                fieldSelector: `metadata.name=${deploymentName}`,
+            });
+            const deployments = res.items || [];
+            if (deployments.length === 0) {
+                return {
+                    content: [
+                        {
+                            type: "text",
+                            text: JSON.stringify({
+                                error: `Deployment '${deploymentName}' not found in any namespace.`,
+                            }),
+                        },
+                    ],
+                };
+            }
+            if (deployments.length > 1) {
+                const foundNamespaces = deployments.map(d => d.metadata?.namespace).join(", ");
+                return {
+                    content: [
+                        {
+                            type: "text",
+                            text: JSON.stringify({
+                                error: `Multiple deployments found with name '${deploymentName}' in namespaces: ${foundNamespaces}. Please specify a namespace.`,
+                            }),
+                        },
+                    ],
+                };
+            }
+            targetNamespace = deployments[0].metadata?.namespace;
+        }
+        if (!targetNamespace) {
+            return {
+                content: [
+                    {
+                        type: "text",
+                        text: JSON.stringify({
+                            error: `Could not determine namespace for deployment '${deploymentName}'.`,
+                        }),
+                    },
+                ],
+            };
+        }
+        // 2. Retrieve deployment details
+        const res = await apps.readNamespacedDeployment({
+            name: deploymentName,
+            namespace: targetNamespace,
+        });
+        return {
+            content: [
+                {
+                    type: "text",
+                    text: JSON.stringify(res, null, 2),
+                },
+            ],
+        };
+    }
+    catch (e) {
+        return {
+            isError: true,
+            content: [
+                {
+                    type: "text",
+                    text: JSON.stringify({
+                        error: e.message,
+                    }),
+                },
+            ],
+        };
+    }
+}
+export const kubernetes_describe_deployment_tool = {
+    name: "kubernetes_describe_deployment",
+    schema: {
+        title: "Describe Kubernetes Deployment",
+        description: `
+Retrieves full details for a specific Kubernetes deployment.
+
+Input:
+- deploymentName: The name of the deployment to describe.
+- namespace: Kubernetes namespace (optional).
+
+Output:
+Detailed JSON object containing deployment spec, status, etc.
+
+Examples:
+- Describe deployment "web-server": kubernetes_describe_deployment({ deploymentName: "web-server" })
+- Describe deployment in specific namespace: kubernetes_describe_deployment({ deploymentName: "web-server", namespace: "prod" })
+`,
+        annotations: {
+            title: "Describe Kubernetes Deployment",
+            readOnlyHint: true,
+            idempotentHint: true,
+            openWorldHint: true,
+        },
+        inputSchema: z.object({
+            deploymentName: z
+                .string()
+                .describe("The name of the deployment to describe."),
+            namespace: z
+                .string()
+                .optional()
+                .describe("Optional Kubernetes namespace. If omitted, all namespaces will be searched."),
+        }),
+    },
+    execute: describeDeployment,
+};
+export async function listServices({ namespace }) {
+    try {
+        const { core } = getK8sClients();
+        const res = namespace
+            ? await core.listNamespacedService({ namespace })
+            : await core.listServiceForAllNamespaces();
+        const items = res.body?.items || res.items || [];
+        return {
+            content: [{ type: "text", text: JSON.stringify(items, null, 2) }],
+        };
+    }
+    catch (e) {
+        return {
+            isError: true,
+            content: [{ type: "text", text: `Error fetching services: ${e.message}` }],
+        };
+    }
+}
+export const kubernetes_list_services_tool = {
+    name: "kubernetes_list_services",
+    schema: {
+        title: "List Kubernetes Services",
+        description: "Returns a list of Kubernetes services.",
+        inputSchema: z.object({
+            namespace: z.string().optional().describe("Optional namespace."),
+        }),
+    },
+    execute: listServices,
+};
+export async function listIngress({ namespace }) {
+    try {
+        const { custom } = getK8sClients();
+        // Assuming Networking V1 Ingress
+        const res = namespace
+            ? await custom.listNamespacedCustomObject({
+                group: '://coreos.com',
+                version: 'v1',
+                namespace: 'default',
+                plural: 'prometheusrules'
+            })
+            : await custom.listNamespacedCustomObject({
+                group: '://coreos.com',
+                version: 'v1',
+                namespace: 'default',
+                plural: 'prometheusrules'
+            });
+        const items = res.body?.items || res.items || [];
+        return {
+            content: [{ type: "text", text: JSON.stringify(items, null, 2) }],
+        };
+    }
+    catch (e) {
+        return {
+            isError: true,
+            content: [{ type: "text", text: `Error fetching ingress: ${e.message}` }],
+        };
+    }
+}
+export const kubernetes_list_ingress_tool = {
+    name: "kubernetes_list_ingress",
+    schema: {
+        title: "List Kubernetes Ingress",
+        description: "Returns a list of Kubernetes Ingress resources.",
+        inputSchema: z.object({
+            namespace: z.string().optional().describe("Optional namespace."),
+        }),
+    },
+    execute: listIngress,
+};
+export async function getHPA({ namespace }) {
+    try {
+        const { custom } = getK8sClients();
+        const res = namespace
+            ? await custom.listNamespacedCustomObject({
+                group: "autoscaling",
+                version: "v2",
+                namespace: namespace,
+                plural: "horizontalpodautoscalers"
+            })
+            : await custom.listClusterCustomObject({
+                group: "autoscaling",
+                version: "v2",
+                plural: "horizontalpodautoscalers"
+                // Omitting the namespace property fetches from all namespaces
+            });
+        const items = res.body?.items || res.items || [];
+        return {
+            content: [{ type: "text", text: JSON.stringify(items, null, 2) }],
+        };
+    }
+    catch (e) {
+        return {
+            isError: true,
+            content: [{ type: "text", text: `Error fetching HPA: ${e.message}` }],
+        };
+    }
+}
+export const kubernetes_get_hpa_tool = {
+    name: "kubernetes_get_hpa",
+    schema: {
+        title: "Get Kubernetes HPA",
+        description: "Returns a list of Horizontal Pod Autoscalers.",
+        inputSchema: z.object({
+            namespace: z.string().optional().describe("Optional namespace."),
+        }),
+    },
+    execute: getHPA,
+};
