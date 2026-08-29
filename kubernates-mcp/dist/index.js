@@ -151,7 +151,7 @@ app.get("/health", (_req, res) => {
         uptime: process.uptime()
     });
 });
-const port = Number(process.env.PORT ?? 8080);
+const port = Number(process.env.PORT ?? 3002);
 app.listen(port, () => {
     console.log(`MCP Server listening on ${port}`);
 });

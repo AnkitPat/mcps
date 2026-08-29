@@ -6,6 +6,8 @@ const mockCore = {
     listPodForAllNamespaces: vi.fn(),
     readNamespacedPodLog: vi.fn(),
     readNamespacedPod: vi.fn(),
+    listNamespacedEvent: vi.fn(),
+    listEventForAllNamespaces: vi.fn(),
 };
 const mockApps = {
     listNamespacedDeployment: vi.fn(),
@@ -22,7 +24,7 @@ vi.mock('../k8sClient.js', () => ({
     })),
 }));
 import * as tools from './kubernetesTools.js';
-const { kubernetes_get_pod_logs_tool, kubernetes_get_pod_metrics_tool, kubernetes_list_deployments_tool } = tools;
+const { kubernetes_get_pod_logs_tool, kubernetes_get_pod_metrics_tool, kubernetes_list_deployments_tool, kubernetes_get_events_tool } = tools;
 describe('kubernetes_list_deployments_tool', () => {
     test('should list deployments', async () => {
         mockApps.listDeploymentForAllNamespaces.mockResolvedValue({
@@ -63,5 +65,21 @@ describe('kubernetes_get_pod_metrics_tool', () => {
     test('should return error if env vars are missing', async () => {
         const result = await kubernetes_get_pod_metrics_tool.execute({ namespace: 'default', podName: 'pod1' });
         expect(result.isError).toBe(true);
+    });
+});
+describe('kubernetes_get_events_tool', () => {
+    test('should list events in a namespace', async () => {
+        mockCore.listNamespacedEvent.mockResolvedValue({
+            body: {
+                items: [
+                    { metadata: { name: 'event1' }, message: 'test event' }
+                ]
+            }
+        });
+        const result = await kubernetes_get_events_tool.execute({ namespace: 'default' });
+        const events = JSON.parse(result.content[0].text);
+        expect(events).toHaveLength(1);
+        expect(events[0].metadata.name).toBe('event1');
+        expect(mockCore.listNamespacedEvent).toHaveBeenCalledWith({ namespace: 'default' });
     });
 });

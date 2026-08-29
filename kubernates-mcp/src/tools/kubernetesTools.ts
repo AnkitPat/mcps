@@ -903,8 +903,18 @@ export async function listIngress({ namespace }: { namespace?: string }) {
     const { custom } = getK8sClients();
     // Assuming Networking V1 Ingress
     const res = namespace
-      ? await custom.listNamespacedCustomObject("networking.k8s.io", "v1", namespace, "ingresses")
-      : await custom.listClusterCustomObject("networking.k8s.io", "v1", "ingresses");
+      ? await custom.listNamespacedCustomObject({
+      group: '://coreos.com',
+      version: 'v1',
+      namespace: 'default',
+      plural: 'prometheusrules'
+    })
+      : await custom.listNamespacedCustomObject({
+      group: '://coreos.com',
+      version: 'v1',
+      namespace: 'default',
+      plural: 'prometheusrules'
+    });
     
     const items = (res as any).body?.items || (res as any).items || [];
     return {
@@ -934,9 +944,19 @@ export async function getHPA({ namespace }: { namespace?: string }) {
   try {
     const { custom } = getK8sClients();
     const res = namespace
-      ? await custom.listNamespacedCustomObject("autoscaling", "v2", namespace, "horizontalpodautoscalers")
-      : await custom.listClusterCustomObject("autoscaling", "v2", "horizontalpodautoscalers");
-    
+  ? await custom.listNamespacedCustomObject({
+      group: "autoscaling",
+      version: "v2",
+      namespace: namespace,
+      plural: "horizontalpodautoscalers"
+    })
+  : await custom.listClusterCustomObject({
+      group: "autoscaling",
+      version: "v2",
+      plural: "horizontalpodautoscalers"
+      // Omitting the namespace property fetches from all namespaces
+    });
+
     const items = (res as any).body?.items || (res as any).items || [];
     return {
       content: [{ type: "text" as const, text: JSON.stringify(items, null, 2) }],
