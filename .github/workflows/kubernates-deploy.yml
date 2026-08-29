@@ -46,7 +46,7 @@ jobs:
         with:
           service: 'kubernetes-mcp-server'
           region: 'asia-south1'
-          image: '$LOCATION-docker.pkg.dev/$PROJECT_ID/$REPO_NAME/$IMAGE_NAME:latest'
+          image: '${{ env.LOCATION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPO_NAME }}/${{ env.IMAGE_NAME }}:latest'
           env_vars: |
             K8S_API_TOKEN=${{ secrets.K8S_API_TOKEN }}
             K8S_API_SERVER=${{ secrets.K8S_API_SERVER }}
